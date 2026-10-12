@@ -5,14 +5,26 @@ import { brandBlock } from "../brand";
 import { themeSwitch } from "../theme";
 
 function shell(root: HTMLElement, title: string, sub: string, ...body: Child[]) {
-  root.replaceChildren(h("div", { class: "wrap auth-wrap" },
-    h("div", { class: "sign auth-sign" },
+  const stat = (n: string, label: string) => h("li", null, h("b", null, n), h("span", null, label));
+  root.replaceChildren(h("div", { class: "auth-split" },
+    h("aside", { class: "auth-brand" },
       brandBlock(),
-      h("p", { class: "eyebrow" }, "Moving Market Intelligence"),
-      h("h1", { class: "sign-title" }, title),
-      h("p", { class: "sign-sub" }, sub)),
-    h("div", { class: "panel auth-card" }, ...body),
-    h("div", { class: "auth-foot" }, themeSwitch())));
+      h("div", { class: "auth-pitch" },
+        h("p", { class: "eyebrow" }, "Moving Market Intelligence"),
+        h("h2", null, "Know every moving market before your competitors do."),
+        h("p", { class: "auth-lead" }, "Demand, long-distance lanes, competitors, labor and costs for every U.S. metro, plus your own jobs measured against the market."),
+        h("ul", { class: "auth-stats" },
+          stat("387", "metro areas, every one in the U.S."),
+          stat("10,699", "licensed household-goods movers tracked"),
+          stat("4,000+", "long-distance lanes with household counts"),
+          stat("13", "public sources, refreshed as they publish"))),
+      h("p", { class: "auth-legal" }, "Acumena Analytics · ", h("a", { href: "https://acumenasolutions.com", target: "_blank", rel: "noopener" }, "acumenasolutions.com"))),
+    h("main", { class: "auth-main" },
+      h("div", { class: "auth-box" },
+        h("h1", { class: "auth-title" }, title),
+        h("p", { class: "auth-sub" }, sub),
+        h("div", { class: "auth-card" }, ...body),
+        h("div", { class: "auth-foot" }, themeSwitch())))));
 }
 const note = (kind: "error" | "ok" | "info", text: string) => h("div", { class: "notice notice-" + kind, role: "status" }, text);
 const field = (label: string, input: HTMLInputElement) => h("div", { class: "field" }, h("label", { for: input.id }, label), input);
