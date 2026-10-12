@@ -144,27 +144,38 @@ export function firstLoadScreen(root: HTMLElement, ds: DataSource, isAdmin: bool
     return;
   }
   const status = h("div", { "aria-live": "polite" });
-  const input = h("input", { type: "file", accept: ".json,application/json", class: "sr-only", id: "md-file" }) as HTMLInputElement;
-  input.addEventListener("change", async () => {
-    const f = input.files?.[0];
-    input.value = "";
-    if (!f) return;
+  const run = async (getData: () => Promise<{ metros: unknown[]; built: string }>) => {
     try {
-      const data = JSON.parse(await f.text());
+      status.replaceChildren(h("p", { class: "sub" }, "Getting the data…"));
+      const data = await getData();
       if (!Array.isArray(data.metros) || !data.built) throw new Error("This doesn't look like market_data.json (no metros list).");
       const bar = h("div", { class: "m-track" }, h("div", { class: "m-fill", style: "width:0%" }));
       status.replaceChildren(h("p", { class: "sub" }, `Loading ${data.metros.length} metros…`), bar);
-      await ds.loadMarketData(data, (p) => { (bar.firstChild as HTMLElement).style.width = Math.round(p * 100) + "%"; });
+      await ds.loadMarketData(data as never, (p) => { (bar.firstChild as HTMLElement).style.width = Math.round(p * 100) + "%"; });
       status.replaceChildren(note("ok", "Loaded. Opening the app…"));
       setTimeout(() => location.reload(), 800);
     } catch (err) {
       status.replaceChildren(note("error", (err as Error).message));
     }
+  };
+  const oneClick = h("button", { class: "btn btn-primary btn-wide", type: "button" }, "Load the market data");
+  oneClick.addEventListener("click", () => {
+    oneClick.disabled = true;
+    void run(async () => {
+      const r = await fetch("./market_data.json", { cache: "no-store" });
+      if (!r.ok) throw new Error("The data file isn't on the site right now. Use “choose a file” below instead.");
+      return r.json();
+    }).finally(() => { oneClick.disabled = false; });
+  });
+  const input = h("input", { type: "file", accept: ".json,application/json", class: "sr-only", id: "md-file" }) as HTMLInputElement;
+  input.addEventListener("change", () => {
+    const f = input.files?.[0];
+    input.value = "";
+    if (f) void run(async () => JSON.parse(await f.text()));
   });
   shell(root, "Load the market data", "One-time step for admins",
-    h("p", { class: "lead" }, "The database is set up but empty. Choose the market_data.json file to load all 387 metros. You can refresh it the same way later from the Admin page."),
-    h("label", { class: "dropzone", for: "md-file" }, input,
-      h("span", { class: "dz-main" }, "Choose ", h("u", null, "market_data.json")),
-      h("span", { class: "dz-note" }, "About 2 MB. Takes under a minute.")),
-    status);
+    h("p", { class: "lead" }, "The database is set up but empty. Load all 387 metros with one click. It takes under a minute."),
+    oneClick,
+    status,
+    h("p", { class: "foot" }, "Have a newer file? ", h("label", { for: "md-file", class: "linkish" }, input, "Choose a file instead"), "."));
 }
