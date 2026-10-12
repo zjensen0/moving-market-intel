@@ -52,3 +52,14 @@ describe("hiring radar cleaning", () => {
     expect(rows[0]).toMatchObject({ id: "indeed:J1", role: "mover", pay_hourly_mid: 20, posted_at: "2026-09-29" });
   });
 });
+
+describe("contact advice", () => {
+  it("picks the decision-maker by employer type", async () => {
+    const { contactAdvice } = await import("../../server/jobs");
+    expect(contactAdvice("TWO MEN AND A TRUCK", 5, "competitor").role).toMatch(/Franchise owner/);
+    expect(contactAdvice("American Van Lines", 1, "other").role).toMatch(/Recruiting/);
+    expect(contactAdvice("Bek Moving", 1, "competitor", 3).role).toMatch(/Owner/);
+    expect(contactAdvice("Big Mover", 2, "competitor", 40).role).toMatch(/HR Manager/);
+    expect(contactAdvice("Sample Moving Co.", 1, "client").role).toMatch(/existing contact/);
+  });
+});

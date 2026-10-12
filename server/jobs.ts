@@ -117,3 +117,13 @@ export function fromIndeed(rows: any[], moverKeys: Set<string> = new Set()): Pos
 }
 
 export const ADZUNA_QUERIES = ["movers", "moving company", "household goods driver", "moving and storage"];
+
+/** Who to approach for a recruiting agreement, from what the employer looks like. */
+export function contactAdvice(company: string | null, postings: number, kind: "client" | "competitor" | "other", fleet?: number | null): { role: string; why: string } {
+  const c = (company || "").toLowerCase();
+  if (kind === "client") return { role: "Your existing contact", why: "Already a client; bring them these openings as a staffing lead." };
+  if (/two men and a truck|college hunks|all my sons|bellhop|junk king|1-800|mr\.? junk/.test(c)) return { role: "Franchise owner or General Manager", why: "Franchise location; hiring decisions are made locally, not at the brand's head office." };
+  if (/van lines?|mayflower|united|allied|atlas|north american|bekins|wheaton|arpin|graebel|suddath|sirva/.test(c)) return { role: "Director of Recruiting / Driver Recruiting", why: "Van line or large agent; they have a recruiting function and sign vendor agreements." };
+  if ((fleet ?? 0) >= 21 || postings >= 4) return { role: "HR Manager or Operations Manager", why: "Mid-size operation hiring steadily; HR or ops owns staffing." };
+  return { role: "Owner or General Manager", why: "Small mover; the owner hires directly and can sign an agreement on the spot." };
+}

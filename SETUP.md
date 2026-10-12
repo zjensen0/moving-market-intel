@@ -114,6 +114,8 @@ The **Hiring radar** tab shows moving and storage job postings in each client's 
 3. In Cloudflare (**Settings > Variables and secrets**), add `ADZUNA_APP_ID` (Text) and `ADZUNA_APP_KEY` (Secret), then retry the latest deployment.
 4. Open **Hiring radar** and click **Refresh from Adzuna**. After the first successful refresh it refreshes on its own whenever you open the page and the data is over a day old.
 
+Employer contacts: the "Employers hiring & who to contact" table tells you who to approach at each employer (owner, franchise GM, HR, van-line recruiting) based on what the company looks like. Click **Look up FMCSA contacts** to pull each employer's business phone and email from the public FMCSA carrier register (`supabase/migrations/0005_employer_contacts.sql`, already run on the live project). Use **Add** in the Named contact column to record an owner or manager name you found on the company's own website. This is company-level business information only; the site does not collect records about individual employees.
+
 Indeed sweeps: ask Claude to run an Indeed sweep for your client markets. You get a `.json` file; on the Hiring radar click **Import Indeed sweep** and choose it. Postings from both sources are merged, and a posting is kept for 60 days after it was last seen.
 
 ## If something goes wrong

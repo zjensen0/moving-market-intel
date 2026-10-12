@@ -1,7 +1,7 @@
 // Live data source: Supabase for logins, market data and each company's jobs.
 // Access rules live in the database (supabase/migrations/0001_init.sql), not here.
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import type { AiLogRow, Posting, DataSource, Job, Member, MetroDetail, MetroIndexRow, NationalData, OrgOverview, Session } from "./types";
+import type { AiLogRow, EmployerContact, Posting, DataSource, Job, Member, MetroDetail, MetroIndexRow, NationalData, OrgOverview, Session } from "./types";
 import { indexRow } from "./types";
 
 const PAGE = 1000;
@@ -110,6 +110,24 @@ export function createSupabaseSource(url: string, anonKey: string): DataSource &
     async lastPostingsRefresh() {
       const { data } = await sb.from("job_refresh_runs").select("created_at,source,postings").eq("source", "adzuna").order("created_at", { ascending: false }).limit(1);
       return data?.[0] ?? null;
+    },
+    async employerContacts() {
+      const { data, error } = await sb.from("employer_contacts").select("*");
+      fail(error);
+      return (data || []) as EmployerContact[];
+    },
+    async lookupEmployerContacts(employers) {
+      const { data } = await sb.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) throw new Error("Your sign-in has expired. Reload the page.");
+      const r = await fetch("/api/jobs/contacts", { method: "POST", headers: { "content-type": "application/json", authorization: "Bearer " + token }, body: JSON.stringify({ employers }) });
+      const out = await r.json().catch(() => ({ error: "The server sent back something unexpected." }));
+      if (!r.ok) throw new Error(out.error || "Lookup failed.");
+      return out;
+    },
+    async saveEmployerContact(c) {
+      const { error } = await sb.from("employer_contacts").upsert({ ...c, updated_at: new Date().toISOString() }, { onConflict: "company_key" });
+      fail(error);
     },
     async aiLog(): Promise<AiLogRow[]> {
       const { data, error } = await sb.from("ai_questions").select("id,user_id,org_id,question,answer,tokens_in,tokens_out,created_at")

@@ -1,6 +1,6 @@
 // Demo data source: everything runs in the browser with the bundled market data and a made-up
 // client ("Sample Moving Co." in Charlotte). No login, nothing saved.
-import type { DataSource, Job, Member, MetroDetail, NationalData, Org, OrgOverview, Session } from "./types";
+import type { DataSource, EmployerContact, Job, Member, MetroDetail, NationalData, Org, OrgOverview, Session } from "./types";
 import { indexRow } from "./types";
 import { sampleJobs } from "../business/sample";
 import { fromIndeed, matchKey } from "../../server/jobs";
@@ -26,6 +26,17 @@ const DEMO_ANSWERS: { q: string; match: RegExp; answer: string }[] = [
     answer: "Measured by household moves a year per licensed mover based there, the thinnest competition among the 47 mid-size Southeast metros (250,000 to 1 million people) is in Louisiana, Alabama and upstate South Carolina.\n\n- [Shreveport, LA](#/market/43340): about 18,500 household moves a year and only 4 licensed movers, roughly 4,600 moves per mover. Home sales are forecast up about 4% this fall.\n- [Tuscaloosa, AL](#/market/46220): about 19,800 moves and 5 movers, roughly 4,000 per mover.\n- [Spartanburg, SC](#/market/43900): about 18,100 moves and 5 movers, roughly 3,600 per mover, with sales forecast up about 4%.\n- [Baton Rouge, LA](#/market/12940): the largest of the group, about 45,400 moves and 14 movers.\n\nThese markets aren't in your plan, so I can only show these preview numbers; full lanes and competitor detail need them added. Source: Census 2024 movers and FMCSA mover counts (October 2026)."},
   { q: "What's the outlook for Charlotte this fall?", match: /outlook|forecast|fall|next/i,
     answer: "Expect about **33,100 household moves in Charlotte from September to November**, about 2% more than the same months last year (likely range 30,900 to 37,400).\n\n- Home sales over the last three months were up 1.0% on a year earlier and new listings were up 3.9% (Zillow, through August 2026).\n- Your own bookings were up 6.6% over the same stretch, so you're gaining share.\n- Your booking forecast for those three months is about 186 jobs (likely 155 to 227).\n\nSee the forecast on [Charlotte, NC](#/market/16740)." },
+];
+
+// Company-level contact channels for the demo sweep: business phone/email as filed with FMCSA (public
+// record) and managers named on company websites.
+const DEMO_CONTACTS: Omit<EmployerContact, "company_key">[] = [
+  { company: "TWO MEN AND A TRUCK", cbsa: "41180", usdot: "714664", legal_name: "J & C ENTERPRISES INC", phone: "(314) 963-7766", email: "john@tmtstl.com", trucks: 32, contact_name: "John Judson", contact_title: "President and owner, J&C Enterprises (St. Louis franchise)", source: "franchising.com profile; FMCSA carrier census", notes: "Runs 15 TMAT franchises." },
+  { company: "Next Stop Movers", cbsa: "39580", usdot: "3619230", legal_name: "NEXT STOP MOVERS LLC", phone: "(919) 249-8351", email: "info@nextstopmoversnc.com", trucks: 6, contact_name: "Josh Murray, Hale Hong", contact_title: "Owners", source: "nextstopmoversnc.com/about; FMCSA carrier census", notes: null },
+  { company: "Gentle Giant", cbsa: "16740", usdot: "373544", legal_name: "GENTLE GIANT INTERSTATE COMPANY LLC", phone: "(704) 376-2338", email: null, trucks: 88, contact_name: "Bob Farnum", contact_title: "Charlotte Regional Manager", source: "gentlegiant.com Charlotte page", notes: "Charlotte branch phone; HQ Winchester, MA." },
+  { company: "Bek Moving", cbsa: "41180", usdot: "3237297", legal_name: "BEK MOVING COMPANY LLC", phone: "(314) 337-9988", email: "home@bekmoving.com", trucks: 7, contact_name: null, contact_title: null, source: "FMCSA carrier census", notes: null },
+  { company: "MJC Movers", cbsa: "12060", usdot: "3041812", legal_name: "MJC MOVERS LLC", phone: "(770) 885-9343", email: "mjcmoving@gmail.com", trucks: 5, contact_name: null, contact_title: null, source: "FMCSA carrier census", notes: null },
+  { company: "All My Sons Moving & Storage", cbsa: "26900", usdot: "818918", legal_name: "GREEN LINE MOVING & STORAGE OF INDIANAPOLIS LLC", phone: "(469) 461-5000", email: "compliance@allmysons.com", trucks: 10, contact_name: null, contact_title: "Corporate talent acquisition (Carrollton, TX); local GM", source: "FMCSA carrier census", notes: null },
 ];
 
 export async function createDemoSource(): Promise<DemoSource> {
@@ -115,6 +126,13 @@ export async function createDemoSource(): Promise<DemoSource> {
     async refreshPostings() { throw new Error("The demo shows a real Indeed sweep from October 12, 2026. In the live app this button pulls fresh postings from Adzuna."); },
     async importPostings(rows) { return rows.length; },
     async lastPostingsRefresh() { return { created_at: "2026-10-12T09:00:00Z", source: "indeed", postings: 27 }; },
+    async employerContacts() { return DEMO_CONTACTS.map((c) => ({ ...c, company_key: matchKey(c.company) })); },
+    async lookupEmployerContacts() { return { found: 0 }; },
+    async saveEmployerContact(c) {
+      const i = DEMO_CONTACTS.findIndex((x) => matchKey(x.company) === c.company_key);
+      const row = { ...(i >= 0 ? DEMO_CONTACTS[i] : { company: c.company, cbsa: null, usdot: null, legal_name: null, phone: null, email: null, trucks: null, contact_name: null, contact_title: null, source: null, notes: null }), ...c } as (typeof DEMO_CONTACTS)[number];
+      if (i >= 0) DEMO_CONTACTS[i] = row; else DEMO_CONTACTS.push(row);
+    },
     async aiLog() {
       return [{ id: 1, user_id: "u1", org_id: "org-sample", email: "owner@samplemoving.example", question: DEMO_ANSWERS[0].q, answer: DEMO_ANSWERS[0].answer, tokens_in: 9800, tokens_out: 420, created_at: new Date().toISOString() }];
     },

@@ -1,10 +1,10 @@
 // Hiring radar (Acumena admins only): moving and storage job postings in each client's markets.
 import type { Ctx } from "../app";
-import type { OrgOverview, Posting } from "../data/types";
+import type { EmployerContact, OrgOverview, Posting } from "../data/types";
 import { $, h, type Child } from "../lib/dom";
 import { fmtInt, fmtMoney } from "../lib/format";
 import { hbars } from "../charts/hbars";
-import { fromIndeed, matchKey, ROLE_NAMES, type Role } from "../../server/jobs";
+import { contactAdvice, fromIndeed, matchKey, ROLE_NAMES, type Role } from "../../server/jobs";
 
 let scope = "clients"; // "clients" | "all" | org id
 let roleF: Role | "all" = "all";
@@ -30,9 +30,16 @@ const sameCompany = (a: string | null | undefined, b: string | null | undefined)
   return x.length >= 4 && y.length >= 4 && (x === y || x.includes(y) || y.includes(x));
 };
 const clientMarkets = (o: OrgOverview) => [...new Set([...(o.plan === "all" ? [] : o.markets), ...(o.home_cbsa ? [o.home_cbsa] : [])])];
+/** Two-letter state from "Charlotte, NC" or a metro name like "Charlotte-Concord-Gastonia, NC-SC". */
+const stateOf = (...texts: (string | null | undefined)[]) => {
+  for (const t of texts) { const m = /,\s*([A-Z]{2})\b/.exec(t || ""); if (m) return m[1]; }
+  return null;
+};
 
 export async function hiringView(el: HTMLElement, ctx: Ctx) {
-  const [orgs, all, last] = await Promise.all([ctx.ds.adminOverview(), ctx.ds.postings(), ctx.ds.lastPostingsRefresh()]);
+  const [orgs, all, last, contactRows] = await Promise.all([ctx.ds.adminOverview(), ctx.ds.postings(), ctx.ds.lastPostingsRefresh(), ctx.ds.employerContacts().catch(() => [] as EmployerContact[])]);
+  const contacts = new Map(contactRows.map((c) => [c.company_key, c]));
+  const contactFor = (company: string | null) => contacts.get(matchKey(company)) || null;
   const clientCodes = [...new Set(orgs.flatMap(clientMarkets))];
   // FMCSA movers based in each metro, to tell competing movers from other employers
   const moverKeys = new Map<string, Set<string>>();
@@ -67,6 +74,7 @@ export async function hiringView(el: HTMLElement, ctx: Ctx) {
         h("div", { class: "radar-actions" },
           h("button", { class: "btn btn-primary", type: "button", id: "radar-refresh" }, "Refresh from Adzuna"),
           h("label", { class: "btn", for: "radar-file" }, "Import Indeed sweep", h("input", { type: "file", id: "radar-file", accept: ".json,application/json", class: "sr-only" })),
+          h("button", { class: "btn", type: "button", id: "radar-contacts", title: "Pull each employer's business phone and email from the FMCSA carrier register" }, "Look up FMCSA contacts"),
           h("span", { class: "sub" }, last ? `Last refresh: ${new Date(last.created_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} (${last.source}, ${fmtInt(last.postings)} postings)` : "Not refreshed yet"),
           h("div", { id: "radar-status", "aria-live": "polite" })))),
     h("section", { class: "block" }, h("div", { class: "tiles", id: "radar-tiles", style: "margin-top:0" })),
@@ -75,15 +83,15 @@ export async function hiringView(el: HTMLElement, ctx: Ctx) {
       h("div", { class: "grid" }, h("div", { class: "panel w12", id: "radar-clients" }))),
     h("section", { class: "block" },
       h("div", { class: "grid" },
-        h("div", { class: "panel w7" }, h("h3", null, "Employers hiring"), h("p", { class: "sub" }, "Most postings first. “Competing mover” means a mover headquartered in that market on the FMCSA list; branches of out-of-town movers show as other employers."), h("div", { id: "radar-employers" })),
-        h("div", { class: "panel w5" }, h("h3", null, "Posted pay by role"), h("p", { class: "sub" }, "Median hourly pay where the posting lists it (yearly and weekly pay converted at 40 hours a week)."), h("div", { id: "radar-pay" }), h("p", { class: "foot", id: "radar-pay-foot" })))),
+        h("div", { class: "panel w12" }, h("h3", null, "Employers hiring & who to contact"), h("p", { class: "sub" }, "Most postings first. “Competing mover” means a mover headquartered in that market on the FMCSA list; branches of out-of-town movers show as other employers. Business phone and email come from the public FMCSA carrier register (click “Look up FMCSA contacts”); the named contact is whatever you add by hand, for example from the company's own website."), h("div", { id: "radar-employers" })),
+        h("div", { class: "panel w12" }, h("h3", null, "Posted pay by role"), h("p", { class: "sub" }, "Median hourly pay where the posting lists it (yearly and weekly pay converted at 40 hours a week)."), h("div", { id: "radar-pay" }), h("p", { class: "foot", id: "radar-pay-foot" })))),
     h("section", { class: "block" },
       h("div", { class: "sec-head" }, h("h2", null, "Postings")),
       h("div", { class: "panel w12" }, h("div", { class: "tbl-wrap", style: "margin-top:0" }, h("table", { id: "radar-table" },
         h("thead", null, h("tr", null, ...["Posted", "Job", "Employer", "Market", "Role", "Pay", "Source"].map((t) => h("th", null, t)))), h("tbody"))),
         h("div", { class: "more" }, h("button", { class: "btn", type: "button", id: "radar-more" }, "Show all")),
         h("p", { class: "foot" }, "Sources: ", h("a", { href: "https://www.adzuna.com", target: "_blank", rel: "noopener" }, "Jobs by Adzuna"),
-          " and Indeed searches. Shows postings found in a search within the last 60 days that look like moving, storage or van line jobs; the Posted date is when the employer listed it. Visible to Acumena admins only.")))));
+          " and Indeed searches. Shows postings found in a search within the last 60 days that look like moving, storage or van line jobs; the Posted date is when the employer listed it. Employer contacts are company-level business details only (FMCSA register, company websites); no individual employee records are collected. Visible to Acumena admins only.")))));
 
   // ---- controls
   ($("#radar-scope") as HTMLSelectElement).addEventListener("change", (e) => { scope = (e.target as HTMLSelectElement).value; showAll = false; render(); });
@@ -96,6 +104,49 @@ export async function hiringView(el: HTMLElement, ctx: Ctx) {
   ($("#radar-more") as HTMLButtonElement).onclick = () => { showAll = !showAll; render(); };
   const status = $("#radar-status");
   const note = (kind: string, t: Child) => status.replaceChildren(h("div", { class: "notice notice-" + kind }, t));
+  ($("#radar-contacts") as HTMLButtonElement).addEventListener("click", async (e) => {
+    const btn = e.currentTarget as HTMLButtonElement;
+    if (ctx.ds.demo) { note("info", "In the demo the contacts are built in. On the live site this looks up every employer in view in the FMCSA carrier register."); return; }
+    // employers in view that don't have a contact record yet, with the state we can tell from the posting
+    const want = new Map<string, { company: string; state: string; cbsa?: string }>();
+    for (const p of inScope()) {
+      const key = matchKey(p.company);
+      if (!p.company || !key || contacts.has(key) || want.has(key)) continue;
+      const state = stateOf(p.location, p.cbsa ? ctx.byCode.get(p.cbsa)?.n : null);
+      if (state) want.set(key, { company: p.company, state, cbsa: p.cbsa || undefined });
+    }
+    const list = [...want.values()];
+    if (!list.length) { note("info", "Every employer in view already has a contact record (or has no state to search in)."); return; }
+    btn.disabled = true; btn.textContent = "Looking up…";
+    try {
+      let found = 0;
+      for (let i = 0; i < list.length; i += 20) found += (await ctx.ds.lookupEmployerContacts(list.slice(i, i + 20))).found;
+      const fresh = await ctx.ds.employerContacts();
+      contacts.clear(); for (const c of fresh) contacts.set(c.company_key, c);
+      note("ok", `Found FMCSA records for ${found} of ${list.length} employers. The rest aren't registered carriers under that name (brokers, storage-only companies, or a different legal name).`);
+      render();
+    } catch (err) { note("err", (err as Error).message); }
+    finally { btn.disabled = false; btn.textContent = "Look up FMCSA contacts"; }
+  });
+  const editContact = (cell: HTMLElement, company: string, cbsa: string | null, existing: EmployerContact | null) => {
+    const nameIn = h("input", { type: "text", placeholder: "Name (e.g. owner or GM)", value: existing?.contact_name || "" }) as HTMLInputElement;
+    const titleIn = h("input", { type: "text", placeholder: "Title", value: existing?.contact_title || "" }) as HTMLInputElement;
+    const srcIn = h("input", { type: "text", placeholder: "Where you found it (company website, LinkedIn page…)", value: existing?.source || "" }) as HTMLInputElement;
+    const save = h("button", { class: "btn btn-primary", type: "button" }, "Save") as HTMLButtonElement;
+    const cancel = h("button", { class: "btn", type: "button" }, "Cancel") as HTMLButtonElement;
+    cancel.onclick = () => render();
+    save.onclick = async () => {
+      save.disabled = true;
+      try {
+        const row = { company_key: matchKey(company), company, cbsa, contact_name: nameIn.value.trim() || null, contact_title: titleIn.value.trim() || null, source: srcIn.value.trim() || null };
+        await ctx.ds.saveEmployerContact(row);
+        const fresh = await ctx.ds.employerContacts();
+        contacts.clear(); for (const c of fresh) contacts.set(c.company_key, c);
+        render();
+      } catch (err) { note("err", (err as Error).message); save.disabled = false; }
+    };
+    cell.replaceChildren(h("div", { class: "form mini" }, nameIn, titleIn, srcIn, h("div", { class: "actions" }, save, cancel)));
+  };
   ($("#radar-refresh") as HTMLButtonElement).addEventListener("click", async (e) => {
     const btn = e.currentTarget as HTMLButtonElement;
     const targets = scope === "clients" || scope === "all" ? clientCodes : clientMarkets(orgs.find((o) => o.id === scope) as OrgOverview);
@@ -176,14 +227,28 @@ export async function hiringView(el: HTMLElement, ctx: Ctx) {
     // employers
     const emps = [...employers.values()].sort((a, b) => b.length - a.length).slice(0, 25);
     $("#radar-employers").replaceChildren(emps.length ? h("div", { class: "tbl-wrap" }, h("table", null,
-      h("thead", null, h("tr", null, h("th", null, "Employer"), h("th", null, "Market"), h("th", { class: "n" }, "Postings"), h("th", { class: "n" }, "Pay / hr"))),
+      h("thead", null, h("tr", null, h("th", null, "Employer"), h("th", null, "Market"), h("th", { class: "n" }, "Postings"), h("th", { class: "n" }, "Pay / hr"),
+        h("th", null, "Reach out to"), h("th", null, "Business contact (FMCSA)"), h("th", null, "Named contact"))),
       h("tbody", null, ...emps.map((g) => {
         const k = kindOf(g[0]);
         const hrs = g.map((p) => p.pay_hourly_mid).filter((v): v is number => v != null);
+        const c = contactFor(g[0].company);
+        const adv = contactAdvice(g[0].company, g.length, k.kind, c?.trucks);
+        const namedCell = h("td", null) as HTMLElement;
+        const edit = h("button", { class: "btn btn-sm", type: "button" }, c?.contact_name ? "Edit" : "Add") as HTMLButtonElement;
+        edit.onclick = () => editContact(namedCell, g[0].company || "Unknown", g[0].cbsa, c);
+        namedCell.append(c?.contact_name ? h("div", null, h("b", null, c.contact_name), c.contact_title ? h("div", { class: "cell-note" }, c.contact_title) : null, c.source ? h("div", { class: "cell-note" }, "Source: " + c.source) : null) : h("span", { class: "dim" }, "–"), " ", edit);
         return h("tr", null, h("td", null, g[0].company || "Unknown", " ", h("span", { class: "tag" + (k.kind === "client" ? " tag-flag" : "") }, k.kind === "client" ? "Client: " + k.client?.name : KIND_NAMES[k.kind]),
           h("div", { class: "cell-note" }, [...new Set(g.map((p) => ROLE_NAMES[p.role].split(" ")[0]))].join(", "))),
           h("td", null, name(g[0].cbsa)), h("td", { class: "n" }, fmtInt(g.length)),
-          h("td", { class: "n" }, hrs.length ? (Math.min(...hrs) === Math.max(...hrs) ? money(hrs[0]) : `${money(Math.min(...hrs))}–${money(Math.max(...hrs))}`) : "–"));
+          h("td", { class: "n" }, hrs.length ? (Math.min(...hrs) === Math.max(...hrs) ? money(hrs[0]) : `${money(Math.min(...hrs))}–${money(Math.max(...hrs))}`) : "–"),
+          h("td", null, adv.role, h("div", { class: "cell-note" }, adv.why)),
+          h("td", null, c && (c.phone || c.email) ? h("div", null,
+            c.phone ? h("div", null, h("a", { href: "tel:" + c.phone.replace(/[^\d+]/g, "") }, c.phone)) : null,
+            c.email ? h("div", null, h("a", { href: "mailto:" + c.email }, c.email)) : null,
+            h("div", { class: "cell-note" }, [c.legal_name ? c.legal_name : null, c.usdot ? "USDOT " + c.usdot : null, c.trucks != null ? `${fmtInt(c.trucks)} trucks` : null].filter(Boolean).join(" · ")))
+            : h("span", { class: "dim" }, c ? "Not in FMCSA register" : "Not looked up yet")),
+          namedCell);
       })))) : h("p", { class: "sub" }, "No postings match."));
 
     // pay by role

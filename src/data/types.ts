@@ -114,6 +114,12 @@ export interface OrgOverview extends Org {
   jobs: number;
 }
 
+export interface EmployerContact {
+  company_key: string; company: string; cbsa: string | null; usdot: string | null; legal_name: string | null;
+  phone: string | null; email: string | null; trucks: number | null; contact_name: string | null; contact_title: string | null;
+  source: string | null; notes: string | null; updated_at?: string;
+}
+
 export interface AiLogRow {
   id: number; user_id: string; org_id: string | null; question: string; answer: string | null;
   tokens_in: number | null; tokens_out: number | null; created_at: string; email?: string;
@@ -158,6 +164,9 @@ export interface DataSource {
   refreshPostings(markets: string[]): Promise<{ postings: number; errors: string[] }>;
   importPostings(rows: Posting[]): Promise<number>;
   lastPostingsRefresh(): Promise<{ created_at: string; source: string; postings: number } | null>;
+  employerContacts(): Promise<EmployerContact[]>;
+  lookupEmployerContacts(employers: { company: string; state: string; cbsa?: string }[]): Promise<{ found: number }>;
+  saveEmployerContact(c: Partial<EmployerContact> & { company_key: string; company: string }): Promise<void>;
   /** Admins only: recent Ask Acumena questions. */
   aiLog(): Promise<AiLogRow[]>;
   /** Admins only: replace the market data with a new market_data.json. Reports progress 0..1. */

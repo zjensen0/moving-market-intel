@@ -26,7 +26,7 @@ await db.exec(`
   grant usage on schema auth to anon, authenticated;
   grant execute on function auth.uid() to anon, authenticated;
 `);
-for (const f of ["0001_init.sql", "0002_admin_market_data.sql", "0003_ai_questions.sql", "0004_job_postings.sql"])
+for (const f of ["0001_init.sql", "0002_admin_market_data.sql", "0003_ai_questions.sql", "0004_job_postings.sql", "0005_employer_contacts.sql"])
   await db.exec(readFileSync(new URL("../../supabase/migrations/" + f, import.meta.url), "utf8"));
 // Supabase grants table privileges to these roles by default; row-level security does the limiting.
 await db.exec(`
@@ -167,5 +167,8 @@ await as("admin", `insert into public.job_postings (id, source, title, cbsa) val
 assert.equal((await as("admin", `select * from public.job_postings`)).rows.length, 1); ok("admins can load and read job postings");
 assert.equal((await as("alice", `select * from public.job_postings`)).rows.length, 0); ok("clients can't see job postings");
 await fails("alice", `insert into public.job_postings (id, source, title) values ('indeed:2', 'indeed', 'x')`, [], /row-level security/, "clients can't add job postings");
+
+await as("admin", `insert into public.employer_contacts (company_key, company, phone) values ('acme', 'Acme Moving', '555')`);
+assert.equal((await as("alice", `select * from public.employer_contacts`)).rows.length, 0); ok("clients can't see employer contacts");
 
 console.log(`\n${passed} checks passed`);

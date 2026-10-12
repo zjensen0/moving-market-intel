@@ -438,3 +438,7 @@ td.neg { color: var(--down); font-weight: 600; }
 .radar-actions #radar-status { flex-basis: 100%; }
 .radar-actions #radar-status .notice { margin-top: 0; }
 .filters select { border: 1px solid var(--axis); background: var(--panel); border-radius: 8px; padding: 6px 10px; min-width: 0; max-width: 100%; }
+.form.mini { gap: 6px; min-width: 200px; }
+.form.mini input { border: 1px solid var(--axis); background: var(--panel); border-radius: 6px; padding: 5px 8px; font-size: 13px; width: 100%; }
+.btn-sm { padding: 3px 8px; font-size: 12px; }
+.form.mini .actions { display: flex; gap: 6px; }
