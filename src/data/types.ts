@@ -114,6 +114,9 @@ export interface OrgOverview extends Org {
   jobs: number;
 }
 
+/** Hiring activity in one market, by employer and role (aggregated postings; clients see only markets in their plan). */
+export interface MarketHiringRow { company: string | null; company_norm: string | null; role: string; postings: number; pay_median: number | null }
+
 export interface EmployerContact {
   company_key: string; company: string; cbsa: string | null; usdot: string | null; legal_name: string | null;
   phone: string | null; email: string | null; trucks: number | null; contact_name: string | null; contact_title: string | null;
@@ -165,6 +168,8 @@ export interface DataSource {
   importPostings(rows: Posting[]): Promise<number>;
   lastPostingsRefresh(): Promise<{ created_at: string; source: string; postings: number } | null>;
   employerContacts(): Promise<EmployerContact[]>;
+  /** Anyone: posting counts and median posted pay by employer and role, for a market they can view. */
+  marketHiring(cbsa: string): Promise<MarketHiringRow[]>;
   lookupEmployerContacts(employers: { company: string; state: string; cbsa?: string }[]): Promise<{ found: number }>;
   saveEmployerContact(c: Partial<EmployerContact> & { company_key: string; company: string }): Promise<void>;
   /** Admins only: recent Ask Acumena questions. */

@@ -116,6 +116,15 @@ The **Hiring radar** tab shows moving and storage job postings in each client's 
 
 Employer contacts: the "Employers hiring & who to contact" table tells you who to approach at each employer (owner, franchise GM, HR, van-line recruiting) based on what the company looks like. Click **Look up FMCSA contacts** to pull each employer's business phone and email from the public FMCSA carrier register (`supabase/migrations/0005_employer_contacts.sql`, already run on the live project). Use **Add** in the Named contact column to record an owner or manager name you found on the company's own website. This is company-level business information only; the site does not collect records about individual employees.
 
+More on the Hiring radar:
+- **Likely to hire soon**: every mover in the markets in view, ranked by the chance of opening a driver, crew, estimator or crew-lead role in the next 30/60/90 days (fleet size × typical turnover × seasonality × the home-sales forecast). An estimate, not yet back-tested.
+- **New and growing movers**: click **Check FMCSA now** to pull household-goods movers registered in the last 12 months (with the phone, email and officer on their federal filing) and the largest movers whose truck or driver counts changed since the data refresh. Runs live against the public FMCSA register; nothing is stored.
+- **Pay benchmark**, **Hard to fill** and **Hiring pressure by market** are worked out from the postings in view.
+
+For clients, **Your business** now has **Plan ahead** (crew planner, price check, lane opportunities), **Competitor watch** (the largest local movers' fleet changes, inspection results and hiring) and a **Monthly report** button (print, save as PDF, or copy as email text). Competitor hiring counts come from `supabase/migrations/0006_market_hiring.sql` (already run on the live project): clients see counts by employer and role for markets in their plan, never the postings themselves.
+
+Offline copy: `npm run build:real` makes `dist-real/index.html` with real data only (no sample clients), and `PROTECT_PASSWORD=... node scripts/protect_html.mjs dist-real/index.html out.html` locks it with a password (AES-256 encryption).
+
 Indeed sweeps: ask Claude to run an Indeed sweep for your client markets. You get a `.json` file; on the Hiring radar click **Import Indeed sweep** and choose it. Postings from both sources are merged, and a posting is kept for 60 days after it was last seen.
 
 ## Quick reference: every site and what it's for

@@ -4,6 +4,7 @@ import type { EmployerContact, OrgOverview, Posting } from "../data/types";
 import { $, h, type Child } from "../lib/dom";
 import { fmtInt, fmtMoney } from "../lib/format";
 import { hbars } from "../charts/hbars";
+import { extrasSkeleton, renderExtras } from "./radar_extras";
 import { employersFor, predictOpenings, ROLE_ASSUMPTIONS, type MarketIn, type PredRole } from "../business/hiring_forecast";
 import { contactAdvice, fromIndeed, matchKey, ROLE_NAMES, type Role } from "../../server/jobs";
 
@@ -56,11 +57,13 @@ export async function hiringView(el: HTMLElement, ctx: Ctx) {
   const moverKeys = new Map<string, Set<string>>();
   const tops = new Map<string, unknown[][]>();
   const marketsIn = new Map<string, MarketIn>();
+  const details = new Map<string, any>();
   const codes = [...new Set([...clientCodes, ...all.map((p) => p.cbsa).filter((c): c is string => !!c)])];
   await Promise.all(codes.map(async (c) => {
     const d = await ctx.detail(c).catch(() => null);
     moverKeys.set(c, new Set((d?.top || []).map((t: unknown[]) => matchKey(t[0] as string)).filter(Boolean)));
     tops.set(c, (d?.top || []) as unknown[][]);
+    if (d) details.set(c, d);
     marketsIn.set(c, { season: (d as any)?.k?.seas ?? null, growth: (d as any)?.fc?.g ?? null });
   }));
   const kindOf = (p: Posting): { kind: Kind; client?: OrgOverview } => {
@@ -114,6 +117,7 @@ export async function hiringView(el: HTMLElement, ctx: Ctx) {
           h("thead", null, h("tr", null, ...["Employer", "Market", "Role", "Chance", "Why", "Reach out to", "Business contact"].map((t, i) => h("th", { class: i === 3 ? "n" : "" }, t)))), h("tbody"))),
         h("div", { class: "more" }, h("button", { class: "btn", type: "button", id: "pred-more" }, "Show all")),
         h("p", { class: "foot", id: "pred-foot" }))),
+    ...extrasSkeleton(),
     h("section", { class: "block" },
       h("div", { class: "sec-head" }, h("h2", null, "Postings")),
       h("div", { class: "panel w12" }, h("div", { class: "tbl-wrap", style: "margin-top:0" }, h("table", { id: "radar-table" },
@@ -319,6 +323,8 @@ export async function hiringView(el: HTMLElement, ctx: Ctx) {
       const pm = $("#pred-more") as HTMLButtonElement;
       pm.hidden = preds.length <= 40;
       pm.textContent = predShowAll ? "Show fewer" : `Show all ${fmtInt(preds.length)}`;
+      renderExtras({ ctx, ps: inScope().filter((p) => codesIn.includes(p.cbsa || "")), codes: codesIn, details, preds90: predictOpenings(emps, marketsIn, all, { months: 3 }),
+        contactFor, name, rerender: render });
       const A = ROLE_ASSUMPTIONS;
       $("#pred-foot").textContent = `Early version: an estimate, not yet checked against what actually happened. Chance of at least one opening = staff in the role (from FMCSA trucks and drivers) × yearly turnover (movers ${Math.round(A.mover.turnover * 100)}%, drivers ${Math.round(A.driver.turnover * 100)}%, sales ${Math.round(A.sales.turnover * 100)}%, crew leads/ops ${Math.round(A.ops.turnover * 100)}%, industry rules of thumb) × the share of the market's yearly moves in the window, shifted a month ahead because movers hire before busy months × the 90-day home-sales forecast. Once the radar has a few months of daily postings, the turnover rates will be measured from each employer's own posting history and the results back-tested. Company-level only.`;
     }

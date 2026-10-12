@@ -134,6 +134,16 @@ export async function createDemoSource(): Promise<DemoSource> {
       return DEMO_CONTACTS.map((c) => ({ ...c, company_key: matchKey(c.company) }));
     },
     async lookupEmployerContacts() { return { found: 0 }; },
+    async marketHiring(cbsa) {
+      const ps = (await src.postings()).filter((p) => p.cbsa === cbsa);
+      const g = new Map<string, { company: string | null; company_norm: string | null; role: string; pay: number[]; n: number }>();
+      for (const p of ps) {
+        const k = (p.company_norm || "") + "|" + p.role;
+        const r = g.get(k) || { company: p.company, company_norm: p.company_norm, role: p.role, pay: [], n: 0 };
+        r.n++; if (p.pay_hourly_mid != null) r.pay.push(p.pay_hourly_mid); g.set(k, r);
+      }
+      return [...g.values()].map((r) => { const s = r.pay.sort((a, b) => a - b); return { company: r.company, company_norm: r.company_norm, role: r.role, postings: r.n, pay_median: s.length ? (s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2) : null }; });
+    },
     async saveEmployerContact(c) {
       if (__REAL__) {
         const list = (await src.employerContacts()) as EmployerContact[];

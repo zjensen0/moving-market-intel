@@ -443,3 +443,22 @@ td.neg { color: var(--down); font-weight: 600; }
 .btn-sm { padding: 3px 8px; font-size: 12px; }
 .form.mini .actions { display: flex; gap: 6px; }
 .chk { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; margin-left: 12px; }
+td.up b, td.up { color: var(--up); }
+td.down b, td.down { color: var(--down); }
+/* plan ahead, competitor watch, monthly report */
+.crew-inputs { display: flex; flex-wrap: wrap; gap: 12px; margin: 10px 0 4px; }
+.crew-inputs label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--ink-2); }
+.crew-inputs input { width: 130px; border: 1px solid var(--axis); background: var(--panel); color: var(--ink); border-radius: 6px; padding: 6px 8px; font-size: 14px; }
+.pc-verdict { display: inline-block; font-weight: 700; padding: 3px 10px; border-radius: 999px; margin: 6px 0 8px; font-size: 13px; }
+.pc-behind { background: color-mix(in srgb, var(--down) 18%, transparent); color: var(--down); }
+.pc-ahead { background: color-mix(in srgb, var(--lane) 22%, transparent); color: var(--ink); }
+.pc-pace { background: color-mix(in srgb, var(--up) 18%, transparent); color: var(--up); }
+.report-actions { display: flex; gap: 10px; flex-wrap: wrap; margin: 18px 0 12px; }
+.report-page h2 { margin: 4px 0 14px; }
+.report-sec { margin: 14px 0; }
+.report-sec h3 { margin-bottom: 4px; }
+@media print {
+  header, footer, .no-print, .demo-bar { display: none !important; }
+  body { background: #fff !important; color: #000 !important; }
+  .report-page { border: 0 !important; box-shadow: none !important; }
+}

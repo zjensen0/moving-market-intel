@@ -1,4 +1,5 @@
 // Your business: the client's own jobs set against the public data for their home market.
+import { drawPlan, planSections } from "./plan";
 import type { Ctx } from "../app";
 import type { Job, MetroDetail } from "../data/types";
 import { $, h, cssVar, type Child } from "../lib/dom";
@@ -43,6 +44,7 @@ export async function businessView(el: HTMLElement, ctx: Ctx) {
   if (s) {
     const draw = () => drawCharts(ctx, home, s);
     draw();
+    void drawPlan(ctx, home, s, jobs).catch(() => { /* plan panels are extras: never block the page */ });
     redraw = new AbortController();
     document.addEventListener("mmi:redraw", () => { if ($("#b-overview")) draw(); }, { signal: redraw.signal });
   }
@@ -93,6 +95,7 @@ function filledLayout(ctx: Ctx, home: MetroDetail, s: BusinessSummary, jobs: Job
           sample ? h("span", { class: "muted" }, " These are made-up sample jobs.") : null),
         h("div", { class: "strip-actions" },
           h("a", { class: "btn", href: "#b-data", onclick: (e: Event) => { e.preventDefault(); document.getElementById("b-data")?.scrollIntoView({ behavior: "smooth" }); } }, "Upload jobs"),
+          h("a", { class: "btn btn-primary", href: "#/report" }, "Monthly report"),
           h("button", { class: "btn", type: "button", onclick: () => download(jobsToCsv(jobs), fileSafe(ctx.session.org?.name || "jobs") + "-jobs.csv") }, "Download your jobs"))),
       flashBox(),
       h("div", { class: "tiles" },
@@ -135,6 +138,7 @@ function filledLayout(ctx: Ctx, home: MetroDetail, s: BusinessSummary, jobs: Job
             h("tbody"))),
           ref("b-other-lanes"),
           h("p", { class: "foot" }, "A lane is flagged as untapped when at least 300 households a year make that move and you booked a small fraction of your usual share. Your share compares 12 months of your jobs with a year of IRS household moves, so read it as a rough gauge.")))),
+    ...planSections(here),
     section("b-customers", "Customers", "Which lead sources bring the most jobs, and the biggest ones",
       h("div", { class: "grid" },
         panel("w6", "Where your jobs come from", "Lead source, last 12 months", ref("b-sources"), foot("ft-sources")),

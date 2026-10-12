@@ -1,7 +1,7 @@
 // Live data source: Supabase for logins, market data and each company's jobs.
 // Access rules live in the database (supabase/migrations/0001_init.sql), not here.
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import type { AiLogRow, EmployerContact, Posting, DataSource, Job, Member, MetroDetail, MetroIndexRow, NationalData, OrgOverview, Session } from "./types";
+import type { AiLogRow, EmployerContact, Posting, DataSource, Job, Member, MetroDetail, MetroIndexRow, NationalData, OrgOverview, Session, MarketHiringRow } from "./types";
 import { indexRow } from "./types";
 
 const PAGE = 1000;
@@ -110,6 +110,11 @@ export function createSupabaseSource(url: string, anonKey: string): DataSource &
     async lastPostingsRefresh() {
       const { data } = await sb.from("job_refresh_runs").select("created_at,source,postings").eq("source", "adzuna").order("created_at", { ascending: false }).limit(1);
       return data?.[0] ?? null;
+    },
+    async marketHiring(cbsa) {
+      const { data, error } = await sb.rpc("market_hiring", { p_cbsa: cbsa });
+      if (error) return []; // function not deployed yet: competitor hiring just shows as unknown
+      return (data || []) as MarketHiringRow[];
     },
     async employerContacts() {
       const { data, error } = await sb.from("employer_contacts").select("*");
