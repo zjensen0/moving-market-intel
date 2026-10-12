@@ -352,3 +352,11 @@ tr.flag td { background: color-mix(in srgb, var(--lane) 14%, var(--panel)); }
   .acct-email { max-width: 150px; }
   .auth-sign { margin-top: 16px; }
 }
+
+/* primary buttons stay visible on the near-black dark theme */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .btn-primary { background: #f5f5f5; border-color: #f5f5f5; color: #0a0a0a; }
+  :root:not([data-theme="light"]) .btn-primary:hover { background: #ffffff; }
+}
+:root[data-theme="dark"] .btn-primary { background: #f5f5f5; border-color: #f5f5f5; color: #0a0a0a; }
+:root[data-theme="dark"] .btn-primary:hover { background: #ffffff; }
