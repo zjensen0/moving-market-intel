@@ -6,3 +6,4 @@ dist-demo/
 .env.*.local
 *.log
 .DS_Store
+public/market_data.json
