@@ -1,0 +1,35 @@
+{
+  "name": "moving-market-intel",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:demo": "vite --mode demo",
+    "build": "tsc --noEmit && vite build",
+    "build:demo": "tsc --noEmit && vite build --mode demo",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:db": "node tests/db/rls.test.mjs",
+    "load-data": "node scripts/load_market_data.mjs"
+  },
+  "dependencies": {
+    "@fontsource/barlow": "^5.3.0",
+    "@fontsource/barlow-condensed": "^5.3.0",
+    "@fontsource/overpass-mono": "^5.3.0",
+    "@supabase/supabase-js": "^2.117.3",
+    "d3": "^7.9.0",
+    "papaparse": "^5.7.0",
+    "topojson-client": "^3.1.0"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "@types/d3": "^7.4.3",
+    "@types/papaparse": "^5.5.2",
+    "@types/topojson-client": "^3.1.5",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.4",
+    "vite-plugin-singlefile": "^2.3.3",
+    "vitest": "^5.0.3"
+  }
+}
