@@ -118,6 +118,21 @@ Employer contacts: the "Employers hiring & who to contact" table tells you who t
 
 Indeed sweeps: ask Claude to run an Indeed sweep for your client markets. You get a `.json` file; on the Hiring radar click **Import Indeed sweep** and choose it. Postings from both sources are merged, and a posting is kept for 60 days after it was last seen.
 
+## Quick reference: every site and what it's for
+
+| Site | What it does for Acumena Analytics | Where to go | Sign-in |
+|---|---|---|---|
+| **The app** — https://moving-market-intel.pages.dev (later https://analytics.acumenasolutions.com) | What clients use. Admin tab, Hiring radar and Ask Acumena log are admin-only. | Admin → Market data to load new data; Hiring radar → Refresh / Import / Look up FMCSA contacts | Email magic link (zjensen0@gmail.com is the admin) |
+| **GitHub** — https://github.com/zjensen0/moving-market-intel | The code. Every push to `main` redeploys the site. | Nothing to do day to day | Your GitHub login |
+| **Cloudflare** — https://dash.cloudflare.com → Workers & Pages → moving-market-intel | Hosts the site and runs the server functions (Ask Acumena, Adzuna refresh, FMCSA lookup). Holds the keys below under Settings → Variables and secrets. | Deployments (retry after adding a key); Custom domains; Settings → Variables and secrets | Your Cloudflare login |
+| **Supabase** — https://supabase.com/dashboard/project/pncdeacnukobuulzyhei | The database and client logins. Companies, plans, invite codes, uploaded jobs, postings, contacts, question log. | SQL Editor (migrations), Authentication → Users, Table Editor | Your Supabase login |
+| **Anthropic Console** — https://console.anthropic.com | Pays for Ask Acumena (Claude). Key goes in Cloudflare as `ANTHROPIC_API_KEY`. | Settings → API keys; Billing; Limits (set a monthly cap) | Your Anthropic login |
+| **Adzuna developer** — https://developer.adzuna.com | Job postings for the Hiring radar. Keys go in Cloudflare as `ADZUNA_APP_ID` (Text) and `ADZUNA_APP_KEY`. 25 free test calls, then £8/month for 500 calls a day. | Dashboard → API Access Details; Credit Card Details to subscribe | Username `acumena` |
+| **FMCSA carrier census** — https://data.transportation.gov/resource/az4n-8mr2 | Public record; where the radar gets employers' business phone/email and truck counts. No account needed. | Nothing to do | None |
+| **Domain (acumenasolutions.com)** — registrar Tucows, DNS at systemdns.com | Needs one CNAME (`analytics` → `moving-market-intel.pages.dev`) added by whoever manages the domain. | Ask the domain owner | Not yours |
+
+Keys and passwords live in your password manager and in Cloudflare's Variables and secrets — never in this repo or in chat.
+
 ## If something goes wrong
 
 - **"This copy of the site isn't connected to its database yet"**: the two `VITE_` variables are missing in Cloudflare. Add them and redeploy (Deployments > Retry).
