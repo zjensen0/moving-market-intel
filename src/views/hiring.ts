@@ -38,6 +38,7 @@ const stateOf = (...texts: (string | null | undefined)[]) => {
 
 export async function hiringView(el: HTMLElement, ctx: Ctx) {
   const [orgs, all, last, contactRows] = await Promise.all([ctx.ds.adminOverview(), ctx.ds.postings(), ctx.ds.lastPostingsRefresh(), ctx.ds.employerContacts().catch(() => [] as EmployerContact[])]);
+  if (!orgs.length && scope === "clients") scope = "all"; // no client companies yet: show every market
   const contacts = new Map(contactRows.map((c) => [c.company_key, c]));
   const contactFor = (company: string | null) => contacts.get(matchKey(company)) || null;
   const clientCodes = [...new Set(orgs.flatMap(clientMarkets))];
@@ -225,7 +226,7 @@ export async function hiringView(el: HTMLElement, ctx: Ctx) {
     }
 
     // employers
-    const emps = [...employers.values()].sort((a, b) => b.length - a.length).slice(0, 25);
+    const emps = [...employers.values()].sort((a, b) => b.length - a.length).slice(0, 60);
     $("#radar-employers").replaceChildren(emps.length ? h("div", { class: "tbl-wrap" }, h("table", null,
       h("thead", null, h("tr", null, h("th", null, "Employer"), h("th", null, "Market"), h("th", { class: "n" }, "Postings"), h("th", { class: "n" }, "Pay / hr"),
         h("th", null, "Reach out to"), h("th", null, "Business contact (FMCSA)"), h("th", null, "Named contact"))),
