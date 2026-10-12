@@ -1,7 +1,7 @@
 // Live data source: Supabase for logins, market data and each company's jobs.
 // Access rules live in the database (supabase/migrations/0001_init.sql), not here.
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import type { AiLogRow, DataSource, Job, Member, MetroDetail, MetroIndexRow, NationalData, OrgOverview, Session } from "./types";
+import type { AiLogRow, Posting, DataSource, Job, Member, MetroDetail, MetroIndexRow, NationalData, OrgOverview, Session } from "./types";
 import { indexRow } from "./types";
 
 const PAGE = 1000;
@@ -76,6 +76,40 @@ export function createSupabaseSource(url: string, anonKey: string): DataSource &
       const out = await r.json().catch(() => ({ error: "The server sent back something unexpected." }));
       if (!r.ok) throw new Error(out.error || "Something went wrong.");
       return out;
+    },
+    async postings() {
+      const since = new Date(Date.now() - 60 * 864e5).toISOString();
+      const out: Posting[] = [];
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await sb.from("job_postings").select("*").gte("last_seen", since).order("posted_at", { ascending: false }).range(from, from + PAGE - 1);
+        fail(error);
+        out.push(...((data || []) as Posting[]).map((p) => ({ ...p, pay_min: p.pay_min == null ? null : Number(p.pay_min),
+          pay_max: p.pay_max == null ? null : Number(p.pay_max), pay_hourly_mid: p.pay_hourly_mid == null ? null : Number(p.pay_hourly_mid) })));
+        if (!data || data.length < PAGE) break;
+      }
+      return out;
+    },
+    async refreshPostings(markets) {
+      const { data } = await sb.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) throw new Error("Your sign-in has expired. Reload the page.");
+      const r = await fetch("/api/jobs/refresh", { method: "POST", headers: { "content-type": "application/json", authorization: "Bearer " + token }, body: JSON.stringify({ markets }) });
+      const out = await r.json().catch(() => ({ error: "The server sent back something unexpected." }));
+      if (!r.ok) throw new Error(out.error || "Refresh failed.");
+      return out;
+    },
+    async importPostings(rows) {
+      const now = new Date().toISOString();
+      for (let i = 0; i < rows.length; i += 500) {
+        const { error } = await sb.from("job_postings").upsert(rows.slice(i, i + 500).map((p) => ({ ...p, last_seen: now })), { onConflict: "id" });
+        fail(error);
+      }
+      await sb.from("job_refresh_runs").insert({ source: "indeed", markets: [...new Set(rows.map((r) => r.cbsa).filter(Boolean))], postings: rows.length });
+      return rows.length;
+    },
+    async lastPostingsRefresh() {
+      const { data } = await sb.from("job_refresh_runs").select("created_at,source,postings").eq("source", "adzuna").order("created_at", { ascending: false }).limit(1);
+      return data?.[0] ?? null;
     },
     async aiLog(): Promise<AiLogRow[]> {
       const { data, error } = await sb.from("ai_questions").select("id,user_id,org_id,question,answer,tokens_in,tokens_out,created_at")

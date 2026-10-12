@@ -24,13 +24,13 @@ export interface Ctx {
   rerender(): void;
 }
 
-type Route = { page: "market"; code: string } | { page: "compare" | "business" | "admin" | "methods" | "ask" };
+type Route = { page: "market"; code: string } | { page: "compare" | "business" | "admin" | "methods" | "ask" | "hiring" };
 
 export function parseRoute(hash: string): Route | null {
   const m = hash.match(/^#\/market\/(\d{5})$/);
   if (m) return { page: "market", code: m[1] };
   const p = hash.replace(/^#\//, "");
-  if (p === "compare" || p === "business" || p === "admin" || p === "methods" || p === "ask") return { page: p };
+  if (p === "compare" || p === "business" || p === "admin" || p === "methods" || p === "ask" || p === "hiring") return { page: p };
   return null;
 }
 
@@ -76,6 +76,7 @@ export async function startApp(root: HTMLElement, ds: DataSource, session: Sessi
           h("nav", { class: "views", "aria-label": "Pages" },
             tab("market", "Market snapshot"), tab("compare", "Compare markets"), tab("ask", "✦ Ask Acumena"),
             session.org || ds.demo ? tab("business", "Your business") : null,
+            session.isAdmin ? tab("hiring", "Hiring radar") : null,
             session.isAdmin ? tab("admin", "Admin") : null,
             tab("methods", "Data & methods")),
           account()),
@@ -130,7 +131,7 @@ export async function startApp(root: HTMLElement, ds: DataSource, session: Sessi
     const token = ++renderToken;
     let route = parseRoute(location.hash);
     if (!route) { location.replace("#/market/" + ctx.current); return; }
-    if (route.page === "admin" && !session.isAdmin) { location.replace("#/market/" + ctx.current); return; }
+    if ((route.page === "admin" || route.page === "hiring") && !session.isAdmin) { location.replace("#/market/" + ctx.current); return; }
     if (route.page === "market") {
       if (!byCode.has(route.code)) { location.replace("#/market/" + ctx.current); return; }
       ctx.current = route.code;
@@ -140,10 +141,11 @@ export async function startApp(root: HTMLElement, ds: DataSource, session: Sessi
       b.setAttribute("aria-current", b.dataset.page === route!.page ? "page" : "false"));
     ($("#jump") as HTMLElement).hidden = route.page !== "market" || !allowed(ctx.current);
     const main = $("#main");
-    if (route.page === "business" || route.page === "admin" || route.page === "ask") {
+    if (route.page === "business" || route.page === "admin" || route.page === "ask" || route.page === "hiring") {
       mode = "page";
-      pageTitle = route.page === "admin" ? "Admin" : route.page === "ask" ? "Ask Acumena" : session.org?.name || "Your business";
+      pageTitle = route.page === "admin" ? "Admin" : route.page === "ask" ? "Ask Acumena" : route.page === "hiring" ? "Hiring radar" : session.org?.name || "Your business";
       pageSub = route.page === "ask" ? "Ask anything about your markets, in plain English"
+        : route.page === "hiring" ? "Acumena only: who is hiring in each client's markets, and at what pay"
         : route.page === "admin" ? "Client companies, their markets and invite codes"
         : session.org?.home_cbsa ? "Home market: " + (byCode.get(session.org.home_cbsa)?.t ?? session.org.home_cbsa) : "Your jobs against your market";
     } else mode = "market";
@@ -174,6 +176,7 @@ async function loadView(page: Route["page"], _ctx: Ctx): Promise<(el: HTMLElemen
     case "business": return (await import("./views/business")).businessView;
     case "admin": return (await import("./views/admin")).adminView;
     case "ask": return (await import("./views/ask")).askView;
+    case "hiring": return (await import("./views/hiring")).hiringView;
     default: return (await import("./views/methods")).methodsView;
   }
 }

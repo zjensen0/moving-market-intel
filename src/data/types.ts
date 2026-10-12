@@ -1,3 +1,5 @@
+import type { Posting } from "../../server/jobs";
+export type { Posting };
 // Shapes of the data the app works with. Market data mirrors data/market_data.json
 // (built by the data pipeline); see scripts/prepare_app_data.py.
 
@@ -151,6 +153,11 @@ export interface DataSource {
   removeMember(orgId: string, userId: string): Promise<void>;
   /** Ask Acumena: a question answered by AI from the market data (live: /api/ask). */
   ask(question: string, context: { market?: string; business?: Record<string, unknown> | null }): Promise<{ answer: string; remaining?: number }>;
+  /** Admins only (Hiring radar): job postings, Adzuna refresh, Indeed file import. */
+  postings(): Promise<Posting[]>;
+  refreshPostings(markets: string[]): Promise<{ postings: number; errors: string[] }>;
+  importPostings(rows: Posting[]): Promise<number>;
+  lastPostingsRefresh(): Promise<{ created_at: string; source: string; postings: number } | null>;
   /** Admins only: recent Ask Acumena questions. */
   aiLog(): Promise<AiLogRow[]>;
   /** Admins only: replace the market data with a new market_data.json. Reports progress 0..1. */

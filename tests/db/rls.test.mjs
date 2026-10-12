@@ -26,7 +26,7 @@ await db.exec(`
   grant usage on schema auth to anon, authenticated;
   grant execute on function auth.uid() to anon, authenticated;
 `);
-for (const f of ["0001_init.sql", "0002_admin_market_data.sql", "0003_ai_questions.sql"])
+for (const f of ["0001_init.sql", "0002_admin_market_data.sql", "0003_ai_questions.sql", "0004_job_postings.sql"])
   await db.exec(readFileSync(new URL("../../supabase/migrations/" + f, import.meta.url), "utf8"));
 // Supabase grants table privileges to these roles by default; row-level security does the limiting.
 await db.exec(`
@@ -161,5 +161,11 @@ assert.equal((await as("bob", `select * from public.ai_questions`)).rows.length,
 assert.equal((await as("admin", `select * from public.ai_questions`)).rows.length, 2); ok("admins see the question log");
 const del = await as("alice", `delete from public.ai_questions returning id`);
 assert.equal(del.rows.length, 0); ok("nobody can delete questions to reset the limit");
+
+// Hiring radar: admins only
+await as("admin", `insert into public.job_postings (id, source, title, cbsa) values ('indeed:1', 'indeed', 'Mover', '19820')`);
+assert.equal((await as("admin", `select * from public.job_postings`)).rows.length, 1); ok("admins can load and read job postings");
+assert.equal((await as("alice", `select * from public.job_postings`)).rows.length, 0); ok("clients can't see job postings");
+await fails("alice", `insert into public.job_postings (id, source, title) values ('indeed:2', 'indeed', 'x')`, [], /row-level security/, "clients can't add job postings");
 
 console.log(`\n${passed} checks passed`);

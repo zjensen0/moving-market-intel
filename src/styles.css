@@ -429,3 +429,12 @@ td.neg { color: var(--down); font-weight: 600; }
 .ask-wait::after { content: ""; display: inline-block; width: 1em; animation: dots 1.2s steps(4) infinite; }
 @keyframes dots { 0% { content: ""; } 25% { content: "."; } 50% { content: ".."; } 75% { content: "..."; } }
 @media (max-width: 640px) { .ask-form { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------- hiring radar ---------- */
+.radar-controls { display: grid; gap: 12px; }
+.radar-controls .filters { margin-top: 0; }
+.radar-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; border-top: 1px solid var(--line); padding-top: 12px; }
+.radar-actions label.btn { cursor: pointer; }
+.radar-actions #radar-status { flex-basis: 100%; }
+.radar-actions #radar-status .notice { margin-top: 0; }
+.filters select { border: 1px solid var(--axis); background: var(--panel); border-radius: 8px; padding: 6px 10px; min-width: 0; max-width: 100%; }

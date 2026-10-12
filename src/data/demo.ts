@@ -3,6 +3,7 @@
 import type { DataSource, Job, Member, MetroDetail, NationalData, Org, OrgOverview, Session } from "./types";
 import { indexRow } from "./types";
 import { sampleJobs } from "../business/sample";
+import { fromIndeed, matchKey } from "../../server/jobs";
 import { load, save } from "../lib/store";
 
 interface DemoOrg extends Org { markets: string[]; members: Member[]; jobs: Job[] }
@@ -105,6 +106,15 @@ export async function createDemoSource(): Promise<DemoSource> {
       const hit = DEMO_ANSWERS.find((a) => a.match.test(question));
       return { answer: hit ? hit.answer : "In the demo, Ask Acumena answers the example questions shown above. In the live app it answers any question about the markets in your plan, using the same data as these pages." };
     },
+    async postings() {
+      const rows = (await import("../../data/demo_indeed_sweep.json")).default as unknown[];
+      const keys = new Set<string>();
+      for (const m of market.metros) for (const t of m.top || []) keys.add(matchKey(t[0]));
+      return fromIndeed(rows, keys);
+    },
+    async refreshPostings() { throw new Error("The demo shows a real Indeed sweep from October 12, 2026. In the live app this button pulls fresh postings from Adzuna."); },
+    async importPostings(rows) { return rows.length; },
+    async lastPostingsRefresh() { return { created_at: "2026-10-12T09:00:00Z", source: "indeed", postings: 27 }; },
     async aiLog() {
       return [{ id: 1, user_id: "u1", org_id: "org-sample", email: "owner@samplemoving.example", question: DEMO_ANSWERS[0].q, answer: DEMO_ANSWERS[0].answer, tokens_in: 9800, tokens_out: 420, created_at: new Date().toISOString() }];
     },

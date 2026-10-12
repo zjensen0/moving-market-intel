@@ -105,6 +105,17 @@ Cost: Claude Sonnet 5.5 is $2 per million input tokens and $10 per million outpu
 
 What clients can see: the function reads data with the asking person's own login, so the same rules apply as everywhere else. They get rankings across all 387 metros (the same preview everyone sees) and full detail only for markets in their plan.
 
+## 9. Hiring radar (Acumena admins only)
+
+The **Hiring radar** tab shows moving and storage job postings in each client's markets: the client's own openings (staffing leads), openings at competing movers, and other employers hiring the same people, with posted pay by role. Clients never see it; the database only lets admins read the postings.
+
+1. In Supabase, **SQL Editor**, run `supabase/migrations/0004_job_postings.sql`. Already done on the live project.
+2. Sign up for a free Adzuna developer account at https://developer.adzuna.com and create an app to get an **App ID** and **App Key**. Read their terms on that site; the radar shows their required "Jobs by Adzuna" credit.
+3. In Cloudflare (**Settings > Variables and secrets**), add `ADZUNA_APP_ID` (Text) and `ADZUNA_APP_KEY` (Secret), then retry the latest deployment.
+4. Open **Hiring radar** and click **Refresh from Adzuna**. After the first successful refresh it refreshes on its own whenever you open the page and the data is over a day old.
+
+Indeed sweeps: ask Claude to run an Indeed sweep for your client markets. You get a `.json` file; on the Hiring radar click **Import Indeed sweep** and choose it. Postings from both sources are merged, and a posting is kept for 60 days after it was last seen.
+
 ## If something goes wrong
 
 - **"This copy of the site isn't connected to its database yet"**: the two `VITE_` variables are missing in Cloudflare. Add them and redeploy (Deployments > Retry).
