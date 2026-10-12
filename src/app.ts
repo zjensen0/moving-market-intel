@@ -7,6 +7,7 @@ import { hideTip } from "./lib/tooltip";
 import { rank, rankedCount, rescore, score } from "./market/scoring";
 import type { DemoSource, DemoRole } from "./data/demo";
 import { brandBlock } from "./brand";
+import { themeSwitch } from "./theme";
 
 export interface Ctx {
   ds: DataSource;
@@ -90,8 +91,8 @@ export async function startApp(root: HTMLElement, ds: DataSource, session: Sessi
     return h("button", { type: "button", class: "tab", "data-page": page, onclick: () => ctx.go(page === "market" ? "#/market/" + ctx.current : "#/" + page) }, label);
   }
   function account() {
-    if (ds.demo) return h("div", { class: "account" }, h("span", { class: "tag" }, "Demo"));
-    return h("div", { class: "account" },
+    if (ds.demo) return h("div", { class: "account" }, themeSwitch(), h("span", { class: "tag" }, "Demo"));
+    return h("div", { class: "account" }, themeSwitch(),
       h("span", { class: "acct-name" }, session.org ? session.org.name : session.isAdmin ? "Admin" : ""),
       h("span", { class: "acct-email" }, session.email),
       h("button", { type: "button", class: "btn btn-quiet", onclick: async () => { await ds.signOut(); location.hash = ""; location.reload(); } }, "Sign out"));

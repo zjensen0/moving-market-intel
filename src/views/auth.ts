@@ -2,6 +2,7 @@
 import type { DataSource } from "../data/types";
 import { h, type Child } from "../lib/dom";
 import { brandBlock } from "../brand";
+import { themeSwitch } from "../theme";
 
 function shell(root: HTMLElement, title: string, sub: string, ...body: Child[]) {
   root.replaceChildren(h("div", { class: "wrap auth-wrap" },
@@ -10,7 +11,8 @@ function shell(root: HTMLElement, title: string, sub: string, ...body: Child[]) 
       h("p", { class: "eyebrow" }, "Moving Market Intelligence"),
       h("h1", { class: "sign-title" }, title),
       h("p", { class: "sign-sub" }, sub)),
-    h("div", { class: "panel auth-card" }, ...body)));
+    h("div", { class: "panel auth-card" }, ...body),
+    h("div", { class: "auth-foot" }, themeSwitch())));
 }
 const note = (kind: "error" | "ok" | "info", text: string) => h("div", { class: "notice notice-" + kind, role: "status" }, text);
 const field = (label: string, input: HTMLInputElement) => h("div", { class: "field" }, h("label", { for: input.id }, label), input);

@@ -10,6 +10,9 @@ import "@fontsource/barlow-condensed/latin-700.css";
 import "@fontsource/overpass-mono/latin-400.css";
 import "@fontsource/overpass-mono/latin-600.css";
 import "./styles.css";
+import { applyTheme } from "./theme";
+
+applyTheme();
 
 const root = document.getElementById("app") as HTMLElement;
 
