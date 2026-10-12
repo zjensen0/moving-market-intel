@@ -18,6 +18,14 @@ export function insights(m: MetroDetail, N: NationalData, byCode: Map<string, Me
       Math.round(m.pr.size ?? 0) + "% of U.S. metros.");
   }
 
+  const fc = m.fc;
+  if (fc && fc.mv && fc.g != null) {
+    const span = monthLabel(fc.m[0]).split(" ")[0] + " to " + monthLabel(fc.m[fc.m.length - 1]);
+    add("Forecast: about " + fmtCompact(fc.mv) + " household moves from " + span,
+      "That is " + (fc.g >= 0 ? "up " : "down ") + fmtPct(Math.abs(fc.g), 1) + " on the same months last year (likely range " +
+      fmtCompact(fc.mvlo) + " to " + fmtCompact(fc.mvhi) + "), based on recent sales, new listings and mortgage rates.");
+  }
+
   if (k.s3 != null || k.n3 != null) {
     const n3 = k.n3, s3 = k.s3;
     const lead = n3 == null ? "Home sales trend" : n3 > 0.03 ? "More homes are coming up for sale"

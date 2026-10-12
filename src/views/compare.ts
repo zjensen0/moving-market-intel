@@ -2,11 +2,11 @@
 import type { Ctx } from "../app";
 import type { MetroIndexRow, ScoreParts } from "../data/types";
 import { $, $$, h } from "../lib/dom";
-import { fmtCompact, fmtInt } from "../lib/format";
+import { fmtCompact, fmtInt, fmtSignedPct } from "../lib/format";
 import { COMP, rank, rescore, resetWeights, score, setWeight, sizeClass, weights } from "../market/scoring";
 import { stateNameBare } from "../market/geo";
 
-type SortKey = "rank" | "name" | "score" | keyof ScoreParts | "hhm" | "dmr" | "movers";
+type SortKey = "rank" | "name" | "score" | keyof ScoreParts | "hhm" | "fg" | "dmr" | "movers";
 let sortKey: SortKey = "score";
 let sortDir = -1;
 let sizeF = "all";
@@ -19,7 +19,7 @@ export function compareView(el: HTMLElement, ctx: Ctx) {
   const states = [...new Set(ctx.index.flatMap((m) => m.st))].sort((a, b) => stateNameBare(a).localeCompare(stateNameBare(b)));
   const cols: [SortKey, string, string][] = [
     ["rank", "Rank", "n"], ["name", "Metro", ""], ["score", "Score", ""], ["size", "Size", "n"], ["mom", "Momentum", "n"],
-    ["room", "Room", "n"], ["val", "Value", "n"], ["lab", "Labor", "n"], ["hhm", "Moves / yr", "n"],
+    ["room", "Room", "n"], ["val", "Value", "n"], ["lab", "Labor", "n"], ["hhm", "Moves / yr", "n"], ["fg", "Next 90 days", "n"],
     ["dmr", "Net migration per 1K", "n"], ["movers", "Movers", "n"],
   ];
   el.replaceChildren(h("section", { class: "block", style: "margin-top:22px" },
@@ -51,7 +51,7 @@ export function compareView(el: HTMLElement, ctx: Ctx) {
           h("thead", null, h("tr", null, ...cols.map(([k, t, cls]) =>
             h("th", { class: ("sortable " + cls).trim(), "data-k": k, scope: "col", tabindex: 0 }, t)))),
           h("tbody"))),
-      h("p", { class: "foot" }, "Size, Momentum, Room, Value and Labor are rankings from 0 to 100 against all 387 metros. Select a row to open that market's snapshot." +
+      h("p", { class: "foot" }, "Size, Momentum, Room, Value and Labor are rankings from 0 to 100 against all 387 metros. “Next 90 days” is the forecast change in home sales against the same months last year. Select a row to open that market's snapshot." +
         (limited ? " Markets marked “Not in your plan” show a preview only." : "")))));
 
   // weights
@@ -101,6 +101,7 @@ export function compareView(el: HTMLElement, ctx: Ctx) {
       case "name": return m.n;
       case "score": return score(m.c);
       case "hhm": return m.hhm;
+      case "fg": return m.fg ?? null;
       case "dmr": return m.dmr;
       case "movers": return m.movers;
       default: return m.sc[k];
@@ -133,6 +134,7 @@ export function compareView(el: HTMLElement, ctx: Ctx) {
           h("div", { class: "sb-track" }, h("div", { class: "sb-fill", style: "width:" + (s || 0) + "%" })))),
         pctCell(m.sc.size), pctCell(m.sc.mom), pctCell(m.sc.room), pctCell(m.sc.val), pctCell(m.sc.lab),
         h("td", { class: "n" }, m.hhm ? fmtCompact(m.hhm) : "–"),
+        h("td", { class: "n" + (m.fg == null ? "" : m.fg > 0.02 ? " pos" : m.fg < -0.02 ? " neg" : "") }, m.fg == null ? "–" : fmtSignedPct(m.fg)),
         h("td", { class: "n" }, m.dmr == null ? "–" : (m.dmr > 0 ? "+" : "") + m.dmr.toFixed(1)),
         h("td", { class: "n" }, fmtInt(m.movers)));
       const open = () => ctx.go("#/market/" + m.c);

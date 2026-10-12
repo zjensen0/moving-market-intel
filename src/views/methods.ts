@@ -1,6 +1,7 @@
 // Data & methods: how the score works, where the data comes from, and what to read with care.
 import type { Ctx } from "../app";
 import { h } from "../lib/dom";
+import { fmtInt } from "../lib/format";
 
 const SOURCES: [string, string, string, string][] = [
   ["Census Bureau, Population Estimates", "Population and net moves from the rest of the U.S.", "Vintage 2025 (to July 1, 2025)", "https://www.census.gov/programs-surveys/popest.html"],
@@ -21,7 +22,7 @@ const SOURCES: [string, string, string, string][] = [
 
 const p = (lead: string, text: string) => h("p", null, h("strong", null, lead), " " + text);
 
-export function methodsView(el: HTMLElement, _ctx: Ctx) {
+export function methodsView(el: HTMLElement, ctx: Ctx) {
   el.replaceChildren(
     h("section", { class: "block", style: "margin-top:22px" },
       h("div", { class: "sec-head" }, h("h2", null, "How the score works")),
@@ -32,6 +33,7 @@ export function methodsView(el: HTMLElement, _ctx: Ctx) {
         p("Room to grow", "is household moves per licensed household-goods mover based in the metro. More moves per mover means less crowding."),
         p("Customer value", "averages two rankings: the average income of households moving in (IRS) and median household income (Census)."),
         p("Labor cost", "ranks the average weekly private-sector wage in reverse, so cheaper labor markets score higher.")))),
+    ...(ctx.N.fc ? [forecastSection(ctx) as HTMLElement] : []),
     h("section", { class: "block" },
       h("div", { class: "sec-head" }, h("h2", null, "How “Your business” compares your jobs to the market")),
       h("div", { class: "panel w12" }, h("div", { class: "prose" },
@@ -62,4 +64,28 @@ export function methodsView(el: HTMLElement, _ctx: Ctx) {
       h("div", { class: "panel w12" }, h("div", { class: "prose" },
         h("p", null, "Jobs you upload are stored in your company's private space. The database itself checks every request, so only people who joined your company with an invite code, plus your account team for support, can read them. Other clients can't see your jobs, your company name or which markets you follow."),
         h("p", null, "You can download or delete all of your jobs at any time from the Your business page.")))));
+}
+
+function forecastSection(ctx: Ctx) {
+  const F = ctx.N.fc;
+  if (!F) return null;
+  const pct = (v: number) => v.toFixed(1) + "%";
+  return h("section", { class: "block" },
+    h("div", { class: "sec-head" }, h("h2", null, "How the 90-day forecast works"), h("p", null, "Rebuilt each month when new housing data comes out")),
+    h("div", { class: "grid" },
+      h("div", { class: "panel w7" }, h("div", { class: "prose" },
+        p("What it predicts.", "Home sales in each metro over the next three months, compared with the same three months a year earlier. Moves happen around home closings, so sales track move demand closely. About 100 smaller metros have no Zillow sales counts; their forecast uses new listings instead."),
+        p("What goes in.", "Each metro's recent sales and new listings against a year earlier (new listings lead sales by one to two months), the change in 30-year mortgage rates, the national sales trend, the time of year and the size of the market. One model is trained across all metros, so smaller markets borrow strength from larger ones."),
+        p("From sales to moves.", "The forecast growth is applied to last year's sales for the same months, and that share of a full year's sales is applied to the metro's estimated household moves a year."),
+        p("The range.", "The likely range is built from the model's actual misses in testing: 8 times in 10, the real result landed inside it. Small metros get wider ranges because their monthly numbers jump around more."),
+        p("Testing.", `Every month from ${F.period.slice(0, 7)} on, the model was rebuilt using only data available at that time and scored against what happened: ${fmtInt(F.n)} forecasts in all. It got the direction right ${F.dir.toFixed(0)}% of the time.`))),
+      h("div", { class: "panel w5" },
+        h("h3", null, "Average miss, by year"),
+        h("p", { class: "sub" }, "Lower is better. Percent error in three-month sales against a year earlier."),
+        h("div", { class: "tbl-wrap" }, h("table", null,
+          h("thead", null, h("tr", null, h("th", null, "Year"), h("th", { class: "n" }, "This model"), h("th", { class: "n" }, "Recent trend continues"), h("th", { class: "n" }, "Same as last year"))),
+          h("tbody", null, ...Object.entries(F.by_year as Record<string, number[]>).map(([y, v]) => h("tr", null,
+            h("td", null, y === "2026" ? "2026 (to May)" : y), h("td", { class: "n" }, h("b", null, pct(v[0]))), h("td", { class: "n" }, pct(v[1])), h("td", { class: "n" }, pct(v[2])))),
+            h("tr", null, h("td", null, h("b", null, "All years")), h("td", { class: "n" }, h("b", null, pct(F.mae))), h("td", { class: "n" }, pct(F.mae_trend)), h("td", { class: "n" }, pct(F.mae_same)))))),
+        h("p", { class: "foot" }, `In 2025, a year with little change, simply assuming “same as last year” did slightly better. By market size the average miss was ${pct(F.by_size.large)} for the largest metros, ${pct(F.by_size.mid)} for mid-size and ${pct(F.by_size.small)} for small ones.`))));
 }

@@ -26,6 +26,11 @@ export interface BusinessSummary {
     yourChange: number | null; ppiChange: number | null;
   } | null;
   season: number[] | null;
+  /** Next three months of jobs: last year's same months, moved by your recent trend and the market forecast. */
+  outlook: {
+    months: string[]; ly: number[]; f: number[]; lo: number[]; hi: number[]; g: number;
+    yourTrend: number; marketTrend: number | null; check: number | null; checkN: number;
+  } | null;
   lanes: LaneRow[];
   otherLanes: { code: string; name: string; dir: "out" | "in"; yourJobs: number }[];
   untapped: LaneRow | null;
@@ -158,6 +163,47 @@ export function summarize(jobs: Job[], home: MetroDetail, N: NationalData, byCod
     season = by.map((v) => v / c12.length);
   }
 
+  // ---- your next three months
+  // Same months last year, moved by half your own recent trend (last 3 months vs a year earlier) and half the
+  // market forecast for your home metro. The range adds the market forecast's range to normal month-to-month
+  // swings for a business your size. Checked against your own recent months, using your trend alone.
+  let outlook: BusinessSummary["outlook"] = null;
+  const jm = (m: string) => jobsByMonth.get(m) || 0;
+  const trendAt = (o: string) => {
+    const now = sumJobs(addMonths(o, -2), 3), prev = sumJobs(addMonths(o, -14), 3);
+    return now > 0 && prev > 0 ? Math.log(now / prev) : null;
+  };
+  const yourTrend = firstMonth <= addMonths(end, -14) ? trendAt(end) : null;
+  if (yourTrend != null) {
+    const fc = home.fc;
+    const marketTrend = fc && fc.g != null ? Math.log(1 + fc.g) : null;
+    const g = marketTrend == null ? yourTrend : 0.5 * yourTrend + 0.5 * marketTrend;
+    const wl = fc && fc.glo != null && fc.g != null ? Math.log(1 + fc.g) - Math.log(1 + fc.glo) : 0.08;
+    const wh = fc && fc.ghi != null && fc.g != null ? Math.log(1 + fc.ghi) - Math.log(1 + fc.g) : 0.1;
+    const months3 = [1, 2, 3].map((k) => addMonths(end, k));
+    const ly = months3.map((m) => jm(addMonths(m, -12)));
+    const f = ly.map((v) => v * Math.exp(g));
+    const noise = (v: number) => (v > 0 ? 1.28 / Math.sqrt(v) : 0.5);
+    const lo = f.map((v) => v * Math.exp(-Math.sqrt(wl * wl + noise(v) ** 2)));
+    const hi = f.map((v) => v * Math.exp(Math.sqrt(wh * wh + noise(v) ** 2)));
+    // check: forecasts made 3 to 6 months ago with your trend alone, against what you actually booked
+    const errs: number[] = [];
+    for (let back = 3; back <= 6; back++) {
+      const o = addMonths(end, -back);
+      if (firstMonth > addMonths(o, -14)) continue;
+      const t = trendAt(o);
+      if (t == null) continue;
+      const pred = [1, 2, 3].reduce((a, k) => a + jm(addMonths(o, k - 12)) * Math.exp(t), 0);
+      const act = [1, 2, 3].reduce((a, k) => a + jm(addMonths(o, k)), 0);
+      if (act > 0) errs.push(Math.abs(pred / act - 1));
+    }
+    outlook = {
+      months: months3, ly, f: f.map(Math.round), lo: lo.map(Math.round), hi: hi.map(Math.round), g: Math.expm1(g),
+      yourTrend: Math.expm1(yourTrend), marketTrend: marketTrend == null ? null : Math.expm1(marketTrend),
+      check: errs.length ? errs.reduce((a, b) => a + b, 0) / errs.length : null, checkN: errs.length,
+    };
+  }
+
   // ---- long-distance lanes: the market's biggest vs the jobs you booked on them
   const laneJobs = new Map<string, number>(); // "out|code" or "in|code"
   for (const j of c12) {
@@ -223,7 +269,7 @@ export function summarize(jobs: Job[], home: MetroDetail, N: NationalData, byCod
     longRevShare12: typedRevTotal > 0 ? typedRev.filter((j) => j.job_type === "Long distance").reduce((s, j) => s + (j.revenue as number), 0) / typedRevTotal : null,
     winRate: hasStatus && decided.length ? decided.filter((j) => j.status !== "Lost").length / decided.length : null,
     homeJobs12, marketShare: home.hhm ? homeJobs12 / home.hhm : null,
-    monthly, recent, price, season, lanes, otherLanes, untapped,
+    monthly, recent, price, season, outlook, lanes, otherLanes, untapped,
     untappedKeys: untappedAll.map((l) => l.dir + "|" + l.code),
     byType: group((j) => j.job_type), bySource: sources(),
   };

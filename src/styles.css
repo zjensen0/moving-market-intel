@@ -395,3 +395,16 @@ tr.flag td { background: color-mix(in srgb, var(--lane) 14%, var(--panel)); }
   .auth-lead, .auth-stats, .auth-legal { display: none; }
   .auth-main { padding: 24px 16px 40px; place-items: start center; }
 }
+
+/* ---------- forecast ---------- */
+.fc-panel { border-top: 4px solid var(--s2); display: grid; align-content: start; gap: 6px; }
+.fc-head { font-family: var(--font-display); font-weight: 600; font-size: 30px !important; line-height: 1.1; }
+.fc-range { color: var(--ink-2); font-size: 14.5px; }
+.fc-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 8px; }
+.fc-row > div { border-left: 3px solid var(--line); padding-left: 10px; display: grid; gap: 2px; }
+.fc-big { font-size: 22px; font-weight: 600; }
+.fc-big .delta { font-size: 22px; }
+.fc-read { margin-top: 6px; font-size: 14px !important; color: var(--ink-2) !important; }
+td.pos { color: var(--up); font-weight: 600; }
+td.neg { color: var(--down); font-weight: 600; }
+.fc-months { margin-top: 6px; font-size: 14px; }

@@ -17,7 +17,7 @@ const { metros, ...national } = market;
 
 const indexRow = (m) => ({
   c: m.c, n: m.n, t: m.t, s: m.s, st: m.st, lat: m.lat, lon: m.lon,
-  pop25: m.pop[5] ?? 0, hhm: m.hhm, dmr: m.dmr, movers: m.fm?.n ?? 0, sc: m.sc,
+  pop25: m.pop[5] ?? 0, hhm: m.hhm, dmr: m.dmr, movers: m.fm?.n ?? 0, sc: m.sc, fg: m.fc?.g ?? null,
 });
 const fail = (e, what) => { if (e) { console.error("Failed on " + what + ": " + e.message); process.exit(1); } };
 

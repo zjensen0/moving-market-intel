@@ -59,3 +59,19 @@ describe("summarize", () => {
     expect(t.upcoming).toBe(1);
   });
 });
+
+describe("booking outlook", () => {
+  const jobs = sampleJobs(home, N, zip, "35620");
+  const s = summarize(jobs, home, N, byCode, today)!;
+  it("forecasts the next three months from last year's same months", () => {
+    const o = s.outlook!;
+    expect(o.months).toEqual([1, 2, 3].map((k) => addMonths(s.windowEnd, k)));
+    o.f.forEach((v, i) => { expect(o.lo[i]).toBeLessThanOrEqual(v); expect(o.hi[i]).toBeGreaterThanOrEqual(v); });
+    const ratio = o.f.reduce((a, b) => a + b, 0) / o.ly.reduce((a, b) => a + b, 0);
+    expect(ratio).toBeCloseTo(1 + o.g, 1);
+  });
+  it("needs 15 months of history", () => {
+    const short = jobs.filter((j) => j.job_date >= addMonths(s.windowEnd, -9) + "-01");
+    expect(summarize(short, home, N, byCode, today)!.outlook).toBeNull();
+  });
+});

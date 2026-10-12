@@ -33,6 +33,15 @@ export interface MetroDetail {
   wage: number | null;
   sc: ScoreParts;
   pr: Record<string, number | null>;
+  fc?: Forecast | null;
+}
+
+/** 90-day demand forecast (scripts/forecast_demand.py). Counts are home sales, or new listings when src = "listings". */
+export interface Forecast {
+  src: "sales" | "listings";
+  m: string[]; ly: number[]; f: number[]; lo: number[]; hi: number[];
+  g: number | null; glo: number | null; ghi: number | null; r3: number | null;
+  mv: number | null; mvlo: number | null; mvhi: number | null;
 }
 
 /** Light row for every metro: enough for the picker and Compare markets. */
@@ -49,6 +58,7 @@ export interface MetroIndexRow {
   dmr: number | null;
   movers: number;
   sc: ScoreParts;
+  fg?: number | null; // forecast growth, next 3 months vs a year earlier
 }
 
 export interface NationalData {
@@ -61,6 +71,7 @@ export interface NationalData {
   gov: any;
   bench: any;
   us: any;
+  fc?: any;
 }
 
 export interface Org {
@@ -141,6 +152,6 @@ export interface DataSource {
 export function indexRow(m: MetroDetail): MetroIndexRow {
   return {
     c: m.c, n: m.n, t: m.t, s: m.s, st: m.st, lat: m.lat, lon: m.lon,
-    pop25: (m.pop[5] as number) ?? 0, hhm: m.hhm, dmr: m.dmr, movers: m.fm?.n ?? 0, sc: m.sc,
+    pop25: (m.pop[5] as number) ?? 0, hhm: m.hhm, dmr: m.dmr, movers: m.fm?.n ?? 0, sc: m.sc, fg: m.fc?.g ?? null,
   };
 }

@@ -115,6 +115,8 @@ function filledLayout(ctx: Ctx, home: MetroDetail, s: BusinessSummary, jobs: Job
         panel("w5", "Jobs by type", "Last 12 months, with revenue", ref("b-types"), foot("ft-types")))),
     section("b-volume", "Volume and prices", "How your bookings and prices move against the market",
       h("div", { class: "grid" },
+        h("div", { class: "panel w5 fc-panel", id: "b-outlook" }),
+        panel("w7", "Your next three months", "Jobs per month, with the forecast and its likely range", ref("lg-out", "legend"), ref("ch-out", "chart"), foot("ft-out")),
         panel("w7", "Your jobs against the housing market", "Each line is scaled so its own average is 100. Compare the shape, not the height.",
           ref("lg-vol", "legend"), ref("ch-vol", "chart"), foot("ft-vol")),
         panel("w5", "Jobs per month", "Lost jobs left out. The latest 12 months are in blue.", ref("ch-jobs", "chart"), foot("ft-jobs")),
@@ -160,6 +162,8 @@ function drawCharts(ctx: Ctx, home: MetroDetail, s: BusinessSummary) {
   const totJobs = s.byType.reduce((a, x) => a + x.jobs, 0) || 1, totRev = s.byType.reduce((a, x) => a + x.revenue, 0);
   hbars($("#b-types"), s.byType.map((x) => ({ label: x.label, value: x.jobs, note: totRev ? fmtMoneyC(x.revenue) : fmtPct(x.jobs / totJobs) })), { fmt: (v) => fmtInt(v) + " jobs" });
   $("#ft-types").textContent = totRev ? `Revenue shown after the job count. ${fmtMoneyC(totRev)} in all.` : "Share of jobs shown after the count.";
+
+  drawOutlook(ctx, home, s);
 
   // volume vs market
   const mo = s.monthly;
@@ -259,6 +263,48 @@ function drawCharts(ctx: Ctx, home: MetroDetail, s: BusinessSummary) {
   } else {
     $("#b-source-avg").replaceChildren(h("p", { class: "sub", style: "margin-top:14px" }, "Add revenue and lead source columns to see this."));
   }
+}
+
+function drawOutlook(ctx: Ctx, home: MetroDetail, s: BusinessSummary) {
+  const o = s.outlook, box = $("#b-outlook");
+  const s1 = cssVar("--s1"), s2 = cssVar("--s2");
+  if (!o) {
+    box.replaceChildren(h("h3", null, "Your next three months"), h("p", { class: "sub" }, "Upload at least 15 months of jobs to see a booking forecast."));
+    $("#ch-out").replaceChildren(); $("#lg-out").replaceChildren();
+    return;
+  }
+  const tot = (a: number[]) => a.reduce((x, y) => x + y, 0);
+  const span = monthLabel(o.months[0]).split(" ")[0] + "–" + monthLabel(o.months[2]);
+  box.replaceChildren(
+    h("p", { class: "eyebrow-dark" }, "Booking forecast · " + span),
+    h("h3", { class: "fc-head" }, "About " + fmtInt(tot(o.f)) + " jobs"),
+    h("p", { class: "fc-range" }, "Likely range " + fmtInt(tot(o.lo)) + " to " + fmtInt(tot(o.hi)) + " · same months last year: " + fmtInt(tot(o.ly))),
+    h("div", { class: "fc-row" },
+      h("div", null, h("span", { class: "p-label" }, "Your recent trend"), h("span", { class: "fc-big" }, deltaSpan(o.yourTrend)), h("span", { class: "p-note" }, "last 3 months vs a year earlier")),
+      h("div", null, h("span", { class: "p-label" }, "Market forecast, " + city(home.n)), h("span", { class: "fc-big" }, deltaSpan(o.marketTrend)), h("span", { class: "p-note" }, "home sales, next 3 months"))),
+    h("ul", { class: "plain-list fc-months" }, ...o.months.map((m, i) => h("li", null, h("b", null, monthLabel(m)), " " + fmtInt(o.f[i]) + " jobs ", h("span", { class: "muted" }, `(${fmtInt(o.lo[i])}–${fmtInt(o.hi[i])})`)))),
+    h("p", { class: "foot" }, "Half your own recent trend, half the market forecast for your home metro, applied to the same months last year." +
+      (o.check != null ? ` Checked on your last ${o.checkN} months: off by ${fmtPct(o.check)} on average.` : "")));
+  const back = Math.min(12, s.monthly?.months.length ?? 0);
+  const histMonths = s.monthly ? s.monthly.months.slice(-back) : [];
+  const hist = s.monthly ? s.monthly.jobs.slice(-back) : [];
+  const months = [...histMonths, ...o.months];
+  const nh = histMonths.length;
+  const last = hist[nh - 1] ?? null;
+  const toDate = (m: string) => new Date(+m.slice(0, 4), +m.slice(5, 7) - 1, 1);
+  const series = [
+    { name: "Your jobs", color: s1, values: [...hist, null, null, null] as (number | null)[] },
+    { name: "Forecast", color: s2, values: months.map((_, i) => (i === nh - 1 ? last : i >= nh ? o.f[i - nh] : null)), dash: "5 4" },
+    { name: "Same months last year", color: cssVar("--muted"), values: months.map((_, i) => (i >= nh ? o.ly[i - nh] : null)), width: 1.5, noDot: true },
+  ];
+  legend($("#lg-out"), [...series.map((x) => ({ name: x.name, color: x.color })), { name: "Likely range (80%)", color: s2, dot: true }]);
+  if (!nh) { $("#ch-out").replaceChildren(); return; }
+  lineChart($("#ch-out"), {
+    x: months.map(toDate), series, height: 220, yFmt: (v) => fmtInt(v), tipFmt: (v) => fmtInt(v), zero: true,
+    band: { lo: months.map((_, i) => (i === nh - 1 ? last : i >= nh ? o.lo[i - nh] : null)), hi: months.map((_, i) => (i === nh - 1 ? last : i >= nh ? o.hi[i - nh] : null)), color: s2 },
+    xLabel: (i) => monthLabel(months[i]) + (i >= nh ? " (forecast)" : ""), label: "Your monthly jobs with a three-month forecast",
+  });
+  $("#ft-out").textContent = "Lost jobs left out. Use it to plan crews, trucks and marketing spend.";
 }
 
 // ---------------------------------------------------------------------------------------------

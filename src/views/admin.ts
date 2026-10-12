@@ -292,6 +292,24 @@ function marketDataSection(ctx: Ctx) {
       h("div", { class: "panel w12" },
         h("h3", null, `${fmtInt(ctx.index.length)} metros loaded, data as of ${built}`),
         h("p", { class: "sub" }, "To load or refresh the market data, choose the market_data.json file from the data pipeline. It replaces what clients see on their next page load. Client jobs and accounts aren't touched."),
+        h("div", { class: "btn-row" }, (() => {
+          const btn = h("button", { class: "btn btn-primary", type: "button" }, "Load the latest data from the site");
+          btn.addEventListener("click", async () => {
+            btn.disabled = true;
+            try {
+              const r = await fetch("./market_data.json", { cache: "no-store" });
+              if (!r.ok || !(r.headers.get("content-type") || "").includes("json")) throw new Error("No data file is on the site right now. Choose a file below instead.");
+              const data = await r.json();
+              const bar = h("div", { class: "m-track" }, h("div", { class: "m-fill", style: "width:0%" }));
+              status.replaceChildren(h("p", { class: "sub" }, `Loading ${fmtInt(data.metros.length)} metros, data as of ${data.built}…`), bar);
+              const n = await ctx.ds.loadMarketData(data, (p) => { (bar.firstChild as HTMLElement).style.width = Math.round(p * 100) + "%"; });
+              status.replaceChildren(note("ok", `Loaded ${fmtInt(n)} metros. Reload the page to see the new data.`));
+            } catch (err) {
+              status.replaceChildren(note("error", (err as Error).message));
+            } finally { btn.disabled = false; }
+          });
+          return btn;
+        })()),
         h("label", { class: "dropzone", for: "md-file" }, input,
           h("span", { class: "dz-main" }, "Choose ", h("u", null, "market_data.json")),
           h("span", { class: "dz-note" }, ctx.ds.demo ? "In the demo this only simulates the load." : "About 2 MB. Takes under a minute.")),

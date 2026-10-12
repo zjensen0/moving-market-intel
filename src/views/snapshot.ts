@@ -25,6 +25,7 @@ export async function marketView(el: HTMLElement, ctx: Ctx) {
   if (!m) return lockedView(el, ctx, idx);
   el.replaceChildren(skeleton());
   fillStatic(m, ctx);
+  fillForecast(m, ctx);
   const draw = () => drawCharts(m, ctx);
   await draw();
   redraw = new AbortController();
@@ -54,6 +55,9 @@ function skeleton() {
           h("p", { class: "foot" }, "Change the weights in ", h("a", { href: "#/compare" }, "Compare markets"), ".")))),
     section("s-demand", "Demand", "Who is moving, and where the housing market is heading",
       h("div", { class: "grid" },
+        h("div", { class: "panel w5 fc-panel", id: "fc-panel" }),
+        panel("w7", h("span", { id: "fc-title" }, "Outlook: the next three months"), h("span", { id: "fc-sub" }, "Monthly home sales, with the forecast and its likely range"),
+          ref("lg-fc", "legend"), ref("ch-fc", "chart"), foot("ft-fc")),
         panel("w8", "Home sales and new listings each month", "New listings tend to turn into moves within one to two months.",
           ref("lg-housing", "legend"), ref("ch-housing", "chart"), foot("ft-housing")),
         panel("w4", "Busiest months", h("span", { id: "sub-season" }, "Average share of a year's home sales, 2019–2025"),
@@ -127,6 +131,33 @@ export function deltaSpan(v: number | null | undefined, opts: { upIsGood?: boole
   return h("span", { class: "delta " + cls }, (up ? "▲ " : down ? "▼ " : "") + (opts.fmt ? opts.fmt(v) : fmtSignedPct(v)));
 }
 
+const monthRangeLabel = (ms: string[]) => monthLabel(ms[0]).split(" ")[0] + "–" + monthLabel(ms[ms.length - 1]);
+
+function fillForecast(m: MetroDetail, ctx: Ctx) {
+  const fc = m.fc, F = ctx.N.fc;
+  const box = $("#fc-panel");
+  if (!fc || !F) {
+    box.replaceChildren(h("h3", null, "Outlook: next 90 days"), h("p", { class: "sub" }, "No forecast for this metro: Zillow doesn't publish monthly housing data for it."));
+    return;
+  }
+  const what = fc.src === "sales" ? "home sales" : "new listings";
+  const dir = fc.g == null ? "flat" : fc.g > 0.02 ? "up" : fc.g < -0.02 ? "down" : "flat";
+  box.replaceChildren(
+    h("p", { class: "eyebrow-dark" }, "Forecast · " + monthRangeLabel(fc.m)),
+    h("h3", { class: "fc-head" }, fc.mv ? "About " + fmtInt(fc.mv) + " household moves" : "Housing activity " + (dir === "up" ? "rising" : dir === "down" ? "falling" : "steady")),
+    ...(fc.mv ? [h("p", { class: "fc-range" }, "Likely range " + fmtInt(fc.mvlo) + " to " + fmtInt(fc.mvhi))] : []),
+    h("div", { class: "fc-row" },
+      h("div", null, h("span", { class: "p-label" }, "vs the same months last year"), h("span", { class: "fc-big" }, deltaSpan(fc.g)),
+        h("span", { class: "p-note" }, "range " + fmtSignedPct(fc.glo) + " to " + fmtSignedPct(fc.ghi))),
+      h("div", null, h("span", { class: "p-label" }, "Last three months"), h("span", { class: "fc-big" }, deltaSpan(fc.r3)),
+        h("span", { class: "p-note" }, what + " vs a year earlier"))),
+    h("p", { class: "sub fc-read" }, dir === "up" ? `More ${what} are expected than last fall, so plan crews and trucks for a busier stretch than last year.`
+      : dir === "down" ? `Fewer ${what} are expected than a year ago. Expect more price shopping and competition for each job.`
+        : `Expect about the same volume as the same months last year.`),
+    h("p", { class: "foot" }, `Accuracy check: tested on ${fmtInt(F.n)} past forecasts, it was off by ${F.mae.toFixed(1)}% on average (simple “recent trend continues”: ${F.mae_trend.toFixed(1)}%). The range held the actual result 8 times in 10. `,
+      h("a", { href: "#/methods" }, "How it works")));
+}
+
 function fillStatic(m: MetroDetail, ctx: Ctx) {
   const N = ctx.N, B = N.bench, k = m.k || {};
   const dz = N.diesel[m.dz], dv = dz ? dz.v : [];
@@ -140,7 +171,9 @@ function fillStatic(m: MetroDetail, ctx: Ctx) {
     tile("Movers based here", fmtInt(m.fm.n), fmtInt(m.fm.i) + " licensed for interstate moves"),
     tile("Diesel, " + (dz ? shortRegion(dz.name) : ""), dLast == null ? "–" : "$" + (dLast as number).toFixed(2),
       "per gallon, week of " + dateLabel(N.weeks[N.weeks.length - 1]),
-      dLast != null && dYago != null ? h("span", null, deltaSpan((dLast as number) / (dYago as number) - 1, { upIsGood: false }), h("span", { class: "t-note" }, " vs a year ago")) : null));
+      dLast != null && dYago != null ? h("span", null, deltaSpan((dLast as number) / (dYago as number) - 1, { upIsGood: false }), h("span", { class: "t-note" }, " vs a year ago")) : null),
+    ...(m.fc?.mv ? [tile("Moves expected, next 90 days", fmtCompact(m.fc.mv), `Likely ${fmtCompact(m.fc.mvlo)}–${fmtCompact(m.fc.mvhi)}, ${monthRangeLabel(m.fc.m)}`,
+      m.fc.g == null ? null : h("span", null, deltaSpan(m.fc.g), h("span", { class: "t-note" }, " vs same months last year")))] : []));
 
   $("#ins-title").textContent = "What stands out in " + m.n;
   $("#insights").replaceChildren(...insights(m, N, ctx.byCode).map((x, i) =>
@@ -328,6 +361,7 @@ async function drawCharts(m: MetroDetail, ctx: Ctx) {
     $("#ch-season").replaceChildren(h("p", { class: "sub", style: "margin-top:14px" }, "Not enough monthly data for this metro."));
     $("#ft-season").textContent = "";
   }
+  drawForecast(m, ctx, s1, s2);
   columnChart($("#ch-mig"), { labels: ["2021", "2022", "2023", "2024", "2025"], values: m.dm, fmt: (v) => fmtSigned(v),
     label: "Net domestic migration by year", colorOf: (v) => (v >= 0 ? s1 : neg), height: 190 });
   $("#ft-mig").textContent = `Census population estimates, Vintage 2025 (years ending July 1). Population ${fmtInt(m.pop[0])} in 2020, ${fmtInt(m.pop[5])} in 2025 (${fmtSignedPct((m.pop[5] as number) / (m.pop[0] as number) - 1)}).`;
@@ -353,6 +387,37 @@ async function drawCharts(m: MetroDetail, ctx: Ctx) {
   lineChart($("#ch-emp"), { x: P.emp.m.map(toDate), series: [{ name: "Employees (thousands)", color: s1, values: ev, area: true }],
     yFmt: (v) => Math.round(v) + "K", tipFmt: (v) => v.toFixed(1) + "K", xLabel: (i) => monthLabel(P.emp.m[i]), label: "U.S. moving industry employment", height: 170, left: 38 });
   $("#ft-emp").textContent = `${monthLabel(P.emp.m[P.emp.m.length - 1])}: ${ev[ev.length - 1].toFixed(1)} thousand, ${fmtSignedPct(ev[ev.length - 1] / ev[ev.length - 13] - 1)} from a year earlier (preliminary). BLS Current Employment Statistics.`;
+}
+
+function drawForecast(m: MetroDetail, ctx: Ctx, s1: string, s2: string) {
+  const fc = m.fc, N = ctx.N;
+  if (!fc || !m.z) { $("#ch-fc").replaceChildren(h("p", { class: "sub", style: "margin-top:14px" }, "No forecast for this metro.")); $("#lg-fc").replaceChildren(); return; }
+  const src = fc.src === "sales" ? (m.z.s as (number | null)[]) : m.z.nl;
+  const back = 21, start = Math.max(0, N.zm.length - back);
+  const hist = N.zm.slice(start), months = [...hist, ...fc.m];
+  const toDate = (s: string) => new Date(+s.slice(0, 4), +s.slice(5, 7) - 1, 1);
+  const nh = hist.length, lastActual = src[N.zm.length - 1];
+  const actual = [...src.slice(start), null, null, null];
+  const fcst = months.map((_, i) => (i === nh - 1 ? lastActual : i >= nh ? fc.f[i - nh] : null));
+  const lo = months.map((_, i) => (i === nh - 1 ? lastActual : i >= nh ? fc.lo[i - nh] : null));
+  const hi = months.map((_, i) => (i === nh - 1 ? lastActual : i >= nh ? fc.hi[i - nh] : null));
+  const ly = months.map((_, i) => (i >= nh ? fc.ly[i - nh] : null));
+  const what = fc.src === "sales" ? "Home sales" : "New listings";
+  const muted = cssVar("--muted");
+  const series = [
+    { name: what + ", actual", color: s1, values: actual },
+    { name: "Forecast", color: s2, values: fcst, dash: "5 4" },
+    { name: "Same months last year", color: muted, values: ly, width: 1.5, noDot: true },
+  ];
+  legend($("#lg-fc"), [...series, { name: "Likely range (80%)", color: s2 }].map((x, i) => ({ name: x.name, color: x.color, dot: i === 3 })));
+  lineChart($("#ch-fc"), {
+    x: months.map(toDate), series, band: { lo, hi, color: s2 }, yFmt: (v) => fmtCompact(v), tipFmt: (v) => fmtInt(v),
+    xLabel: (i) => monthLabel(months[i]) + (i >= nh ? " (forecast)" : ""), label: "Monthly home sales with a three-month forecast", height: 240,
+  });
+  $("#fc-title").textContent = "Outlook for " + city(m.n) + ": the next three months";
+  $("#fc-sub").textContent = "Monthly " + what.toLowerCase() + ", with the forecast and its likely range";
+  $("#ft-fc").textContent = `Forecast made from data through ${monthLabel(N.fc.origin)}, using recent sales, new listings, mortgage rates and the national trend. Moves follow closings, so home sales track move demand closely. Zillow Research data.` +
+    (fc.src === "listings" ? " Zillow doesn't publish sales counts here, so this forecast uses new listings." : "");
 }
 
 // ---------------------------------------------------------------------------------------------

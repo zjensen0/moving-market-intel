@@ -3,7 +3,7 @@ import { h, cssVar } from "../lib/dom";
 import { fmtInt } from "../lib/format";
 import { hideTip, showTip, tipRow } from "../lib/tooltip";
 
-export interface Series { name: string; color: string; values: (number | null)[]; width?: number; area?: boolean; noDot?: boolean }
+export interface Series { name: string; color: string; values: (number | null)[]; width?: number; area?: boolean; noDot?: boolean; dash?: string }
 export interface LineCfg {
   x: Date[];
   series: Series[];
@@ -17,6 +17,7 @@ export interface LineCfg {
   refLine?: number; // e.g. 100 for indexed charts
   xTickFmt?: (d: Date) => string;
   tip?: (i: number) => Node[]; // custom tooltip rows (the title still comes from xLabel)
+  band?: { lo: (number | null)[]; hi: (number | null)[]; color: string }; // shaded range, e.g. a forecast interval
 }
 
 /** Line chart with a crosshair tooltip; arrow keys move the crosshair when focused. */
@@ -27,6 +28,7 @@ export function lineChart(el: HTMLElement, cfg: LineCfg) {
   const x = d3.scaleTime().domain(d3.extent(cfg.x) as [Date, Date]).range([M.l, W0 - M.r]);
   const all = cfg.series.flatMap((s) => s.values.filter((v): v is number => v != null));
   if (cfg.refLine != null) all.push(cfg.refLine);
+  if (cfg.band) all.push(...[...cfg.band.lo, ...cfg.band.hi].filter((v): v is number => v != null));
   if (!all.length) { el.append(h("p", { class: "sub" }, "No data to chart.")); return; }
   let lo = d3.min(all)!, hi = d3.max(all)!;
   if (cfg.zero) lo = Math.min(0, lo);
@@ -56,12 +58,19 @@ export function lineChart(el: HTMLElement, cfg: LineCfg) {
   svg.append("g").selectAll("text").data(ticks).join("text").attr("x", (d) => x(d)).attr("y", H0 - 8)
     .attr("text-anchor", "middle").text((d) => tf(d));
   const surface = cssVar("--panel");
+  if (cfg.band) {
+    const b = cfg.band;
+    const pts = cfg.x.map((d, i) => [d, b.lo[i], b.hi[i]] as [Date, number | null, number | null]);
+    svg.append("path").attr("fill", b.color).attr("opacity", 0.16)
+      .attr("d", d3.area<[Date, number | null, number | null]>().defined((p) => p[1] != null && p[2] != null)
+        .x((p) => x(p[0])).y0((p) => y(p[1] as number)).y1((p) => y(p[2] as number))(pts));
+  }
   cfg.series.forEach((s) => {
     const pts = cfg.x.map((d, i) => [d, s.values[i]] as [Date, number | null]);
     if (s.area) svg.append("path").attr("fill", s.color).attr("opacity", 0.1)
       .attr("d", d3.area<[Date, number | null]>().defined((p) => p[1] != null).x((p) => x(p[0])).y0(y(y.domain()[0])).y1((p) => y(p[1] as number))(pts));
     svg.append("path").attr("fill", "none").attr("stroke", s.color).attr("stroke-width", s.width || 2)
-      .attr("stroke-linejoin", "round").attr("stroke-linecap", "round")
+      .attr("stroke-linejoin", "round").attr("stroke-linecap", "round").attr("stroke-dasharray", s.dash || null)
       .attr("d", d3.line<[Date, number | null]>().defined((p) => p[1] != null).x((p) => x(p[0])).y((p) => y(p[1] as number))(pts));
     let li = s.values.length - 1;
     while (li > 0 && s.values[li] == null) li--;

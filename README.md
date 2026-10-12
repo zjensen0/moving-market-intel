@@ -15,7 +15,7 @@ Market intelligence for moving and storage companies, sold by Acumena. Clients s
 | `src/data/` | Two data sources with one interface: `supabase.ts` (live) and `demo.ts` (bundled sample) |
 | `data/` | `market_data.json` (387 metros, built by the data pipeline), `zip_cbsa.json` (ZIP to metro), state outlines |
 | `supabase/migrations/` | Database schema, access rules (row-level security) and helper functions |
-| `scripts/` | `load_market_data.mjs` is an optional command-line loader (needs the secret key; the Admin page does the same without it); `prepare_app_data.py` builds the data files from the pipeline output |
+| `scripts/` | `load_market_data.mjs` is an optional command-line loader (needs the secret key; the Admin page does the same without it); `prepare_app_data.py` builds the data files from the pipeline output; `pipeline/forecast_demand.py` builds and back-tests the 90-day forecast |
 | `tests/` | Unit tests (`npm test`) and database rule tests (`npm run test:db`) |
 
 ## How access works
