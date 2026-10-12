@@ -442,3 +442,4 @@ td.neg { color: var(--down); font-weight: 600; }
 .form.mini input { border: 1px solid var(--axis); background: var(--panel); border-radius: 6px; padding: 5px 8px; font-size: 13px; width: 100%; }
 .btn-sm { padding: 3px 8px; font-size: 12px; }
 .form.mini .actions { display: flex; gap: 6px; }
+.chk { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; margin-left: 12px; }

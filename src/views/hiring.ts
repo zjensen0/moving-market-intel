@@ -4,12 +4,17 @@ import type { EmployerContact, OrgOverview, Posting } from "../data/types";
 import { $, h, type Child } from "../lib/dom";
 import { fmtInt, fmtMoney } from "../lib/format";
 import { hbars } from "../charts/hbars";
+import { employersFor, predictOpenings, ROLE_ASSUMPTIONS, type MarketIn, type PredRole } from "../business/hiring_forecast";
 import { contactAdvice, fromIndeed, matchKey, ROLE_NAMES, type Role } from "../../server/jobs";
 
 let scope = "clients"; // "clients" | "all" | org id
 let roleF: Role | "all" = "all";
 let q = "";
 let showAll = false;
+let predMonths: 1 | 2 | 3 = 1;
+let predHideOpen = false;
+let predShowAll = false;
+let predSize: "all" | "small" | "mid" | "large" = "all";
 
 type Kind = "client" | "competitor" | "other";
 const KIND_NAMES: Record<Kind, string> = { client: "Client", competitor: "Competing mover", other: "Other employer" };
@@ -40,14 +45,23 @@ export async function hiringView(el: HTMLElement, ctx: Ctx) {
   const [orgs, all, last, contactRows] = await Promise.all([ctx.ds.adminOverview(), ctx.ds.postings(), ctx.ds.lastPostingsRefresh(), ctx.ds.employerContacts().catch(() => [] as EmployerContact[])]);
   if (!orgs.length && scope === "clients") scope = "all"; // no client companies yet: show every market
   const contacts = new Map(contactRows.map((c) => [c.company_key, c]));
-  const contactFor = (company: string | null) => contacts.get(matchKey(company)) || null;
+  const FRANCHISE = /two men and a truck|college hunks|all my sons|bellhop|junk king|pink zebra|1-800|mr\.? junk|ulta ?movers/i;
+  // a franchise's contact belongs to one location: don't show it for the same brand in another market
+  const contactFor = (company: string | null, cbsa?: string | null) => {
+    const c = contacts.get(matchKey(company)) || null;
+    return c && cbsa && c.cbsa && c.cbsa !== cbsa && FRANCHISE.test(company || "") ? null : c;
+  };
   const clientCodes = [...new Set(orgs.flatMap(clientMarkets))];
   // FMCSA movers based in each metro, to tell competing movers from other employers
   const moverKeys = new Map<string, Set<string>>();
+  const tops = new Map<string, unknown[][]>();
+  const marketsIn = new Map<string, MarketIn>();
   const codes = [...new Set([...clientCodes, ...all.map((p) => p.cbsa).filter((c): c is string => !!c)])];
   await Promise.all(codes.map(async (c) => {
     const d = await ctx.detail(c).catch(() => null);
     moverKeys.set(c, new Set((d?.top || []).map((t: unknown[]) => matchKey(t[0] as string)).filter(Boolean)));
+    tops.set(c, (d?.top || []) as unknown[][]);
+    marketsIn.set(c, { season: (d as any)?.k?.seas ?? null, growth: (d as any)?.fc?.g ?? null });
   }));
   const kindOf = (p: Posting): { kind: Kind; client?: OrgOverview } => {
     const own = orgs.find((o) => clientMarkets(o).includes(p.cbsa || "") && sameCompany(o.name, p.company));
@@ -87,6 +101,20 @@ export async function hiringView(el: HTMLElement, ctx: Ctx) {
         h("div", { class: "panel w12" }, h("h3", null, "Employers hiring & who to contact"), h("p", { class: "sub" }, "Most postings first. “Competing mover” means a mover headquartered in that market on the FMCSA list; branches of out-of-town movers show as other employers. Business phone and email come from the public FMCSA carrier register (click “Look up FMCSA contacts”); the named contact is whatever you add by hand, for example from the company's own website."), h("div", { id: "radar-employers" })),
         h("div", { class: "panel w12" }, h("h3", null, "Posted pay by role"), h("p", { class: "sub" }, "Median hourly pay where the posting lists it (yearly and weekly pay converted at 40 hours a week)."), h("div", { id: "radar-pay" }), h("p", { class: "foot", id: "radar-pay-foot" })))),
     h("section", { class: "block" },
+      h("div", { class: "sec-head" }, h("h2", null, "Likely to hire soon"), h("p", null, "Movers in these markets most likely to open each role, including ones not posting yet: call them before the job goes up")),
+      h("div", { class: "panel w12" },
+        h("div", { class: "filters", style: "margin-bottom:10px" },
+          h("div", { class: "f-row" },
+            h("label", { for: "pred-window" }, "Window"),
+            h("select", { id: "pred-window" }, ...([[1, "Next 30 days"], [2, "Next 60 days"], [3, "Next 90 days"]] as const).map(([v, t]) => h("option", { value: String(v), selected: predMonths === v }, t))),
+            h("label", { for: "pred-size" }, "Fleet"),
+            h("select", { id: "pred-size" }, ...([["all", "Any size"], ["small", "Small (1–10 trucks)"], ["mid", "Mid-size (11–50)"], ["large", "Large (51+)"]] as const).map(([v, t]) => h("option", { value: v, selected: predSize === v }, t))),
+            h("label", { class: "chk" }, h("input", { type: "checkbox", id: "pred-hide", checked: predHideOpen }), " Hide roles they're already posting"))),
+        h("div", { class: "tbl-wrap", style: "margin-top:0" }, h("table", { id: "pred-table" },
+          h("thead", null, h("tr", null, ...["Employer", "Market", "Role", "Chance", "Why", "Reach out to", "Business contact"].map((t, i) => h("th", { class: i === 3 ? "n" : "" }, t)))), h("tbody"))),
+        h("div", { class: "more" }, h("button", { class: "btn", type: "button", id: "pred-more" }, "Show all")),
+        h("p", { class: "foot", id: "pred-foot" }))),
+    h("section", { class: "block" },
       h("div", { class: "sec-head" }, h("h2", null, "Postings")),
       h("div", { class: "panel w12" }, h("div", { class: "tbl-wrap", style: "margin-top:0" }, h("table", { id: "radar-table" },
         h("thead", null, h("tr", null, ...["Posted", "Job", "Employer", "Market", "Role", "Pay", "Source"].map((t) => h("th", null, t)))), h("tbody"))),
@@ -103,6 +131,10 @@ export async function hiringView(el: HTMLElement, ctx: Ctx) {
     render();
   }));
   ($("#radar-more") as HTMLButtonElement).onclick = () => { showAll = !showAll; render(); };
+  ($("#pred-window") as HTMLSelectElement).addEventListener("change", (e) => { predMonths = Number((e.target as HTMLSelectElement).value) as 1 | 2 | 3; render(); });
+  ($("#pred-size") as HTMLSelectElement).addEventListener("change", (e) => { predSize = (e.target as HTMLSelectElement).value as typeof predSize; predShowAll = false; render(); });
+  ($("#pred-hide") as HTMLInputElement).addEventListener("change", (e) => { predHideOpen = (e.target as HTMLInputElement).checked; render(); });
+  ($("#pred-more") as HTMLButtonElement).onclick = () => { predShowAll = !predShowAll; render(); };
   const status = $("#radar-status");
   const note = (kind: string, t: Child) => status.replaceChildren(h("div", { class: "notice notice-" + kind }, t));
   ($("#radar-contacts") as HTMLButtonElement).addEventListener("click", async (e) => {
@@ -233,7 +265,7 @@ export async function hiringView(el: HTMLElement, ctx: Ctx) {
       h("tbody", null, ...emps.map((g) => {
         const k = kindOf(g[0]);
         const hrs = g.map((p) => p.pay_hourly_mid).filter((v): v is number => v != null);
-        const c = contactFor(g[0].company);
+        const c = contactFor(g[0].company, g[0].cbsa);
         const adv = contactAdvice(g[0].company, g.length, k.kind, c?.trucks);
         const namedCell = h("td", null) as HTMLElement;
         const edit = h("button", { class: "btn btn-sm", type: "button" }, c?.contact_name ? "Edit" : "Add") as HTMLButtonElement;
@@ -256,6 +288,40 @@ export async function hiringView(el: HTMLElement, ctx: Ctx) {
     const roles = (["driver", "mover", "sales", "ops", "warehouse", "office"] as Role[]).map((r) => ({ r, v: pay(r), n: ps.filter((p) => p.role === r && p.pay_hourly_mid != null).length }));
     hbars($("#radar-pay"), roles.map(({ r, v, n }) => ({ label: ROLE_NAMES[r], value: v, note: n ? `${n} posting${n > 1 ? "s" : ""}` : undefined, missing: "No pay posted" })), { fmt: (v) => "$" + v.toFixed(2) });
     $("#radar-pay-foot").textContent = "Posted pay is what employers advertise, often a range; it isn't what they end up paying. Per-mile driver pay is left out.";
+
+    // likely to hire soon
+    {
+      const codesIn = scope === "all" ? [...new Set([...tops.keys()].filter((c) => all.some((p) => p.cbsa === c) || clientCodes.includes(c)))]
+        : scope === "clients" ? clientCodes : clientMarkets(orgs.find((o) => o.id === scope) as OrgOverview);
+      const trucksByKey = new Map([...contacts.values()].map((c) => [c.company_key, c.trucks]));
+      const emps = codesIn.flatMap((c) => employersFor(c, tops.get(c), all, trucksByKey));
+      let preds = predictOpenings(emps, marketsIn, all, { months: predMonths });
+      const roleMap: Partial<Record<Role, PredRole>> = { driver: "driver", mover: "mover", sales: "sales", ops: "ops" };
+      if (roleF !== "all") { const want = roleMap[roleF]; preds = want ? preds.filter((x) => x.role === want) : []; }
+      if (q) preds = preds.filter((x) => x.company.toLowerCase().includes(q));
+      if (predHideOpen) preds = preds.filter((x) => !x.openNow);
+      if (predSize !== "all") preds = preds.filter((x) => { const t = x.trucks ?? 0; return predSize === "small" ? t <= 10 : predSize === "mid" ? t > 10 && t <= 50 : t > 50; });
+      const rows = predShowAll ? preds : preds.slice(0, 40);
+      const roleName: Record<PredRole, string> = { driver: "Driver", mover: "Mover / crew", sales: "Estimator / sales", ops: "Crew lead / ops" };
+      $("#pred-table tbody").replaceChildren(...(rows.length ? rows.map((x) => {
+        const c = contactFor(x.company, x.cbsa);
+        const kind = orgs.find((o) => clientMarkets(o).includes(x.cbsa) && sameCompany(o.name, x.company)) ? "client" : moverKeys.get(x.cbsa)?.has(matchKey(x.company)) ? "competitor" : "other";
+        const adv = contactAdvice(x.company, 0, kind as Kind, c?.trucks);
+        return h("tr", { class: x.openNow ? "flag" : "" },
+          h("td", null, h("b", null, x.company), h("div", { class: "cell-note" }, x.trucks ? `${fmtInt(x.trucks)} truck${x.trucks > 1 ? "s" : ""}` : "Fleet size unknown"), x.openNow ? h("div", { class: "cell-note" }, h("span", { class: "tag tag-flag" }, "Posting now")) : null),
+          h("td", null, name(x.cbsa)),
+          h("td", null, roleName[x.role]),
+          h("td", { class: "n" }, h("b", null, x.chance >= 0.95 ? "95%+" : Math.max(1, Math.round(x.chance * 100)) + "%"), h("div", { class: "cell-note" }, x.band + (x.expected >= 1.5 ? ` · ~${Math.round(x.expected)} openings` : ""))),
+          h("td", null, h("div", { class: "cell-note", style: "white-space:normal" }, x.reasons.join(" · "))),
+          h("td", null, adv.role),
+          h("td", null, c?.phone ? h("a", { href: "tel:" + c.phone.replace(/[^\d+]/g, "") }, c.phone) : h("span", { class: "dim" }, "–")));
+      }) : [h("tr", null, h("td", { colspan: 7, class: "dim" }, "No employers to score for these filters."))]));
+      const pm = $("#pred-more") as HTMLButtonElement;
+      pm.hidden = preds.length <= 40;
+      pm.textContent = predShowAll ? "Show fewer" : `Show all ${fmtInt(preds.length)}`;
+      const A = ROLE_ASSUMPTIONS;
+      $("#pred-foot").textContent = `Early version: an estimate, not yet checked against what actually happened. Chance of at least one opening = staff in the role (from FMCSA trucks and drivers) × yearly turnover (movers ${Math.round(A.mover.turnover * 100)}%, drivers ${Math.round(A.driver.turnover * 100)}%, sales ${Math.round(A.sales.turnover * 100)}%, crew leads/ops ${Math.round(A.ops.turnover * 100)}%, industry rules of thumb) × the share of the market's yearly moves in the window, shifted a month ahead because movers hire before busy months × the 90-day home-sales forecast. Once the radar has a few months of daily postings, the turnover rates will be measured from each employer's own posting history and the results back-tested. Company-level only.`;
+    }
 
     // postings table
     const sorted = [...ps].sort((a, b) => (b.posted_at || "").localeCompare(a.posted_at || ""));
