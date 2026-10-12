@@ -50,6 +50,10 @@ export function monthRange(end: string, count: number): string[] {
   return Array.from({ length: count }, (_, i) => addMonths(end, i - count + 1));
 }
 const counted = (j: Job) => j.status !== "Lost";
+/** A booking forecast needs at least this many jobs in each three-month stretch it compares. */
+export const MIN_TREND_JOBS = 15;
+/** Cap on the trend used in the forecast: ±50% a year. */
+const MAX_TREND = Math.log(1.5);
 const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : NaN);
 const thisMonth = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 
@@ -171,7 +175,9 @@ export function summarize(jobs: Job[], home: MetroDetail, N: NationalData, byCod
   const jm = (m: string) => jobsByMonth.get(m) || 0;
   const trendAt = (o: string) => {
     const now = sumJobs(addMonths(o, -2), 3), prev = sumJobs(addMonths(o, -14), 3);
-    return now > 0 && prev > 0 ? Math.log(now / prev) : null;
+    // too few jobs to read a trend: 3 jobs -> 9 jobs isn't a 200% trend, it's noise
+    if (now < MIN_TREND_JOBS || prev < MIN_TREND_JOBS) return null;
+    return Math.max(-MAX_TREND, Math.min(MAX_TREND, Math.log(now / prev)));
   };
   const yourTrend = firstMonth <= addMonths(end, -14) ? trendAt(end) : null;
   if (yourTrend != null) {

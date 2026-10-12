@@ -273,7 +273,7 @@ function drawOutlook(ctx: Ctx, home: MetroDetail, s: BusinessSummary) {
   const o = s.outlook, box = $("#b-outlook");
   const s1 = cssVar("--s1"), s2 = cssVar("--s2");
   if (!o) {
-    box.replaceChildren(h("h3", null, "Your next three months"), h("p", { class: "sub" }, "Upload at least 15 months of jobs to see a booking forecast."));
+    box.replaceChildren(h("h3", null, "Your next three months"), h("p", { class: "sub" }, "Upload at least 15 months of jobs, with 15 or more jobs in each three-month stretch, to see a booking forecast."));
     $("#ch-out").replaceChildren(); $("#lg-out").replaceChildren();
     return;
   }

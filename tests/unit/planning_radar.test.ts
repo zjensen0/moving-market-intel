@@ -72,3 +72,16 @@ describe("fmcsa helpers", () => {
     expect(ch[0].trucksNow - ch[0].trucksWas).toBe(4);
   });
 });
+
+import { summarize } from "../../src/business/analytics";
+describe("booking forecast guards", () => {
+  it("gives no forecast when a business has too few jobs to read a trend", () => {
+    const md = JSON.parse(require("node:fs").readFileSync("data/market_data.json", "utf8"));
+    const home = md.metros.find((m: any) => m.c === "16740");
+    const byCode = new Map(md.metros.map((m: any) => [m.c, m]));
+    const jobs = Array.from({ length: 20 }, (_, i) => ({ job_date: `2025-${String((i % 12) + 1).padStart(2, "0")}-15`, origin_zip: null, destination_zip: null, origin_cbsa: "16740", destination_cbsa: "16740", job_type: "Local", status: "Completed", revenue: 1000, weight_lbs: null, crew_hours: null, lead_source: null }))
+      .concat(Array.from({ length: 6 }, (_, i) => ({ job_date: `2026-0${(i % 3) + 7}-10`, origin_zip: null, destination_zip: null, origin_cbsa: "16740", destination_cbsa: "16740", job_type: "Local", status: "Completed", revenue: 1000, weight_lbs: null, crew_hours: null, lead_source: null })));
+    const s = summarize(jobs as any, home, md, byCode as any, new Date("2026-10-12T12:00:00"));
+    expect(s?.outlook).toBeNull();
+  });
+});
