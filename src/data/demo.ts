@@ -134,6 +134,7 @@ export async function createDemoSource(): Promise<DemoSource> {
       return DEMO_CONTACTS.map((c) => ({ ...c, company_key: matchKey(c.company) }));
     },
     async lookupEmployerContacts() { return { found: 0 }; },
+    async peerBenchmarks() { if (__REAL__) return { peers: 0, ready: false }; return { peers: orgs.filter((o) => o.id !== me().id && o.jobs.length >= 50).length, ready: false }; },
     async marketHiring(cbsa) {
       const ps = (await src.postings()).filter((p) => p.cbsa === cbsa);
       const g = new Map<string, { company: string | null; company_norm: string | null; role: string; pay: number[]; n: number }>();

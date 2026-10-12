@@ -6,7 +6,7 @@ import { $, h } from "../lib/dom";
 import { fmtInt } from "../lib/format";
 import { ROLE_NAMES, type Posting } from "../../server/jobs";
 import { fleetChanges, fleetNow, newMovers, type FleetChange, type NewMover } from "../data/fmcsa";
-import { BENCH_ROLES, hardToFill, hiringPressure, payBenchmark } from "../business/radar_insights";
+import { BENCH_ROLES, benchPlan, hardToFill, hiringPressure, payBenchmark } from "../business/radar_insights";
 import type { Prediction } from "../business/hiring_forecast";
 
 const money = (v: number | null) => (v == null ? "–" : "$" + v.toFixed(2));
@@ -15,6 +15,8 @@ const dateFmt = (d: string) => new Date(d + "T12:00:00").toLocaleDateString("en-
 
 let showAllHard = false;
 let showAllNew = false;
+let benchShare = 0.15;
+let showAllBench = false;
 let fmcsaCache: { key: string; movers: NewMover[]; changes: FleetChange[]; tracked: number; at: Date } | null = null;
 
 export function extrasSkeleton() {
@@ -30,6 +32,13 @@ export function extrasSkeleton() {
         h("h3", { style: "margin-top:18px" }, "Fleet changes since the last data refresh"),
         h("div", { id: "fm-growth" }, h("p", { class: "sub" }, "Click “Check FMCSA now”.")),
         h("p", { class: "foot", id: "fm-foot" }))),
+    h("section", { class: "block" },
+      h("div", { class: "sec-head" }, h("h2", null, "Bench builder"), h("p", null, "Candidates to have ready before the openings appear, by market and role")),
+      h("div", { class: "panel w12" },
+        h("div", { class: "filters", style: "margin-bottom:10px" }, h("div", { class: "f-row" },
+          h("label", { for: "bench-share" }, "Share of openings Acumena aims to fill"),
+          h("select", { id: "bench-share" }, ...[0.05, 0.1, 0.15, 0.2, 0.3].map((v) => h("option", { value: String(v), selected: v === benchShare }, Math.round(v * 100) + "%"))))),
+        h("div", { id: "bench" }), h("div", { class: "more" }, h("button", { class: "btn", type: "button", id: "bench-more" }, "Show all")), h("p", { class: "foot", id: "bench-foot" }))),
     h("section", { class: "block" },
       h("div", { class: "sec-head" }, h("h2", null, "Pay benchmark"), h("p", null, "Median posted hourly pay by market and role, against the median across every market in view")),
       h("div", { class: "panel w12" }, h("div", { id: "pay-bench" }), h("p", { class: "foot", id: "pay-bench-foot" }))),
@@ -71,6 +80,21 @@ export function renderExtras(a: ExtrasArgs) {
         h("td", { class: "n" }, money(r.blsHourly), r.blsState ? h("div", { class: "cell-note" }, "statewide") : null))))))
     : h("p", { class: "sub" }, "No postings with pay in view."));
   $("#pay-bench-foot").textContent = "Posted pay is what employers advertise, converted to hourly at 40 hours a week; postings over $80 an hour (owner-operator contracts) and per-mile pay are left out. Green and red mark markets 5% or more above or below the all-market median. The BLS column is the 2025 average weekly wage at moving companies (all jobs, office included) divided by 40. Use it on sales calls: “your posting is $3 below the Atlanta median.”";
+
+  // bench builder
+  const bench = benchPlan(codes, ps, a.preds90, (c) => details.get(c)?.k?.seas ?? null, benchShare);
+  const bRows = showAllBench ? bench : bench.slice(0, 20);
+  $("#bench").replaceChildren(bench.length ? h("div", { class: "tbl-wrap", style: "margin-top:0" }, h("table", null,
+    h("thead", null, h("tr", null, h("th", null, "Market"), h("th", null, "Role"), h("th", { class: "n" }, "Open now"), h("th", { class: "n" }, "Expected, next 90 days"), h("th", { class: "n" }, "Bench to have ready"), h("th", null, "Busiest month ahead"), h("th", null, "Start recruiting"))),
+    h("tbody", null, ...bRows.map((r) => h("tr", null, h("td", null, name(r.cbsa)), h("td", null, roleShort(r.role)), h("td", { class: "n" }, fmtInt(r.openNow)),
+      h("td", { class: "n" }, fmtInt(Math.round(r.expected90))), h("td", { class: "n" }, h("b", null, fmtInt(r.bench) + " candidate" + (r.bench > 1 ? "s" : ""))),
+      h("td", null, r.peakMonth), h("td", null, r.recruitBy ? r.recruitBy.toLocaleDateString("en-US", { month: "short", day: "numeric" }) : h("b", null, "Now"))))))) 
+    : h("p", { class: "sub" }, "No openings expected in the markets in view."));
+  const bm = $("#bench-more") as HTMLButtonElement;
+  bm.hidden = bench.length <= 20; bm.textContent = showAllBench ? "Show fewer" : `Show all ${bench.length}`;
+  bm.onclick = () => { showAllBench = !showAllBench; a.rerender(); };
+  ($("#bench-share") as HTMLSelectElement).onchange = (e) => { benchShare = Number((e.target as HTMLSelectElement).value); a.rerender(); };
+  $("#bench-foot").textContent = "Like stocking a warehouse before orders arrive: build a pool of screened candidates where openings are coming, so a placement takes days, not weeks. Bench = (open postings + openings the “Likely to hire soon” estimate expects in 90 days) × the share Acumena aims to fill, rounded up. Start recruiting six weeks before the market's busiest month in the next six months.";
 
   // hard to fill
   const hard = hardToFill(ps);

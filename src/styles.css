@@ -462,3 +462,18 @@ td.down b, td.down { color: var(--down); }
   body { background: #fff !important; color: #000 !important; }
   .report-page { border: 0 !important; box-shadow: none !important; }
 }
+/* pricing calendar */
+.cal-legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12.5px; color: var(--ink-2); margin: 6px 0 10px; }
+.cal-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.cal-legend i { width: 14px; height: 14px; border-radius: 3px; display: inline-block; }
+.cal-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 6px; }
+.cal-cell { border-radius: 8px; padding: 7px 8px; display: flex; flex-direction: column; gap: 1px; font-size: 12px; border: 1px solid transparent; cursor: default; }
+.cal-cell:focus { outline: 2px solid var(--lane); outline-offset: 1px; }
+.cal-date { font-weight: 600; }
+.cal-idx { font-size: 18px; font-weight: 700; line-height: 1.1; }
+.cal-adj { opacity: .85; }
+.cal-peak { background: color-mix(in srgb, var(--down) 30%, var(--panel)); }
+.cal-busy { background: color-mix(in srgb, var(--down) 14%, var(--panel)); }
+.cal-standard { background: var(--panel-2); }
+.cal-slow { background: color-mix(in srgb, var(--lane) 25%, var(--panel)); }
+i.cal-peak, i.cal-busy, i.cal-standard, i.cal-slow { border: 1px solid var(--axis); }

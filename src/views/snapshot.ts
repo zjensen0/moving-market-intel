@@ -1,4 +1,5 @@
 // Market snapshot: one metro's demand, lanes, competition, labor and costs.
+import { drawStrategy, pricingPanel, roundTripPanel } from "./strategy_panels";
 import type { Ctx } from "../app";
 import type { MetroDetail, MetroIndexRow } from "../data/types";
 import { $, h, cssVar, type Child } from "../lib/dom";
@@ -26,6 +27,7 @@ export async function marketView(el: HTMLElement, ctx: Ctx) {
   el.replaceChildren(skeleton());
   fillStatic(m, ctx);
   fillForecast(m, ctx);
+  drawStrategy(m, ctx);
   const draw = () => drawCharts(m, ctx);
   await draw();
   redraw = new AbortController();
@@ -68,7 +70,8 @@ function skeleton() {
           ref("ch-mig", "chart"), foot("ft-mig")),
         panel("w12", "Households crossing the metro line", "Tax returns that changed address into or out of the metro, 2022 to 2023 (newest IRS data)",
           h("div", { class: "pair", id: "irs-pair" }),
-          h("p", { class: "foot" }, "A tax return stands for a household. Moves between counties inside the metro are left out because they are local moves.")))),
+          h("p", { class: "foot" }, "A tax return stands for a household. Moves between counties inside the metro are left out because they are local moves.")),
+        pricingPanel())),
     section("s-lanes", "Long-distance lanes", "The metro pairs with the most households moving between them",
       h("div", { class: "grid" },
         h("div", { class: "panel w12" },
@@ -84,7 +87,8 @@ function skeleton() {
             h("thead", null, h("tr", null, h("th", null, "Lane"), h("th", { class: "n" }, "Households moving out"),
               h("th", { class: "n" }, "Households moving in"), h("th", { class: "n" }, "Out minus in"), h("th", { class: "n" }, "Miles"))),
             h("tbody"))),
-          h("p", { class: "foot" }, "IRS county-to-county moves of tax filers, 2022 to 2023, added up to metros. The IRS hides county pairs with fewer than 20 returns, so small lanes are undercounted. A large positive “out minus in” means trucks heading there often come back light.")))),
+          h("p", { class: "foot" }, "IRS county-to-county moves of tax filers, 2022 to 2023, added up to metros. The IRS hides county pairs with fewer than 20 returns, so small lanes are undercounted. A large positive “out minus in” means trucks heading there often come back light.")),
+        roundTripPanel())),
     section("s-competition", "Competition", "Licensed household-goods movers based in the metro",
       h("div", { class: "tiles", id: "comp-tiles", style: "margin-top:0" }),
       h("div", { class: "grid", style: "margin-top:14px" },

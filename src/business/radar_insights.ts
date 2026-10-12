@@ -74,3 +74,27 @@ export function hiringPressure(codes: string[], postings: Posting[], preds90: Pr
   for (const r of rows) if (r.perHundred != null) r.level = vals.length < 3 ? "Medium" : r.perHundred >= t2 ? "High" : r.perHundred >= t1 ? "Medium" : "Low";
   return rows.sort((a, b) => (b.perHundred ?? -1) - (a.perHundred ?? -1));
 }
+
+export interface BenchRow { cbsa: string; role: Role; openNow: number; expected90: number; bench: number; peakMonth: string; recruitBy: Date | null }
+/** Anticipatory staffing: how many ready candidates Acumena should have in each market and role, and when to start.
+ *  Bench = (open postings + openings expected in 90 days) × the share of openings Acumena aims to fill.
+ *  Recruit by = six weeks before the busiest month in the next six months. */
+export function benchPlan(codes: string[], postings: Posting[], preds90: Prediction[], seasonOf: (c: string) => number[] | null, share: number, today = new Date()): BenchRow[] {
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const out: BenchRow[] = [];
+  for (const c of codes) {
+    const seas = seasonOf(c) || Array(12).fill(1);
+    let best = 1, bestV = -1;
+    for (let k = 1; k <= 6; k++) { const v = seas[(today.getMonth() + k) % 12]; if (v > bestV) { bestV = v; best = k; } }
+    const peak = new Date(today.getFullYear(), today.getMonth() + best, 1, 12);
+    const recruit = new Date(peak.getTime() - 42 * 864e5);
+    for (const role of BENCH_ROLES) {
+      const openNow = postings.filter((p) => p.cbsa === c && p.role === role).length;
+      const expected90 = preds90.filter((x) => x.cbsa === c && x.role === role && !x.openNow).reduce((a, x) => a + x.expected, 0);
+      const total = openNow + expected90;
+      if (total < 0.5) continue;
+      out.push({ cbsa: c, role, openNow, expected90, bench: Math.max(1, Math.ceil(total * share)), peakMonth: months[peak.getMonth()], recruitBy: recruit <= today ? null : recruit });
+    }
+  }
+  return out.sort((a, b) => b.bench - a.bench || (b.openNow + b.expected90) - (a.openNow + a.expected90));
+}

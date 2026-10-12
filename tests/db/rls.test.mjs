@@ -26,7 +26,7 @@ await db.exec(`
   grant usage on schema auth to anon, authenticated;
   grant execute on function auth.uid() to anon, authenticated;
 `);
-for (const f of ["0001_init.sql", "0002_admin_market_data.sql", "0003_ai_questions.sql", "0004_job_postings.sql", "0005_employer_contacts.sql", "0006_market_hiring.sql"])
+for (const f of ["0001_init.sql", "0002_admin_market_data.sql", "0003_ai_questions.sql", "0004_job_postings.sql", "0005_employer_contacts.sql", "0006_market_hiring.sql", "0007_peer_benchmarks.sql"])
   await db.exec(readFileSync(new URL("../../supabase/migrations/" + f, import.meta.url), "utf8"));
 // Supabase grants table privileges to these roles by default; row-level security does the limiting.
 await db.exec(`
@@ -175,5 +175,20 @@ assert.equal((await as("alice", `select * from public.employer_contacts`)).rows.
 await as("admin", `insert into public.job_postings (id, source, title, cbsa, company, company_norm, role) values ('indeed:9', 'indeed', 'Mover', '14460', 'Far Movers', 'far movers', 'mover')`);
 assert.equal((await as("alice", `select * from public.market_hiring('19820')`)).rows.length, 1); ok("clients see hiring activity in their markets");
 assert.equal((await as("alice", `select * from public.market_hiring('14460')`)).rows.length, 0); ok("clients can't see hiring activity outside their plan");
+
+// Peer benchmarks: nothing until 5 peers, then aggregates only
+assert.equal((await as("alice", `select public.peer_benchmarks() as r`)).rows[0].r.ready, false); ok("peer benchmarks stay off with fewer than 5 peers");
+for (let i = 0; i < 5; i++) {
+  const o = (await as("admin", `insert into public.organizations (name, home_cbsa) values ($1, '19820') returning id`, ["Peer " + i])).rows[0].id;
+  await as("admin", `insert into public.org_markets (org_id, cbsa_code) values ($1, '12060')`, [o]);
+  await as("admin", `insert into public.client_jobs (org_id, job_date, job_type, status, revenue, crew_hours)
+    select $1, (date_trunc('month', current_date) - interval '2 months')::date + (g % 28), case when g % 4 = 0 then 'Long distance' else 'Local' end,
+           case when g % 5 = 0 then 'Lost' else 'Completed' end, 1000 + 100 * $2, 8 from generate_series(1, 70) g`, [o, i]);
+}
+const pb = (await as("alice", `select public.peer_benchmarks() as r`)).rows[0].r;
+assert.equal(pb.ready, true); assert.equal(pb.peers, 5); ok("peer benchmarks switch on at 5 peers");
+assert.equal(pb.quartiles.avg_rev[1], 1200); ok("peer benchmarks give quartiles");
+assert.ok(pb.markets.some((m) => m.cbsa === "12060")); ok("peers' added markets are recommended");
+assert.ok(!JSON.stringify(pb).includes("Peer 0") && !JSON.stringify(pb).includes("org_id")); ok("no peer is identifiable");
 
 console.log(`\n${passed} checks passed`);

@@ -117,6 +117,14 @@ export interface OrgOverview extends Org {
 /** Hiring activity in one market, by employer and role (aggregated postings; clients see only markets in their plan). */
 export interface MarketHiringRow { company: string | null; company_norm: string | null; role: string; postings: number; pay_median: number | null }
 
+/** Anonymous "movers like you" benchmarks: quartiles [25th, median, 75th] across other client companies. */
+export interface PeerBench {
+  peers: number; ready: boolean;
+  quartiles?: Record<"jobs" | "avg_rev" | "per_hour" | "win" | "long_share", (number | null)[] | null>;
+  mine?: Record<"jobs" | "avg_rev" | "per_hour" | "win" | "long_share", number | null> | null;
+  markets?: { cbsa: string; peers: number }[];
+}
+
 export interface EmployerContact {
   company_key: string; company: string; cbsa: string | null; usdot: string | null; legal_name: string | null;
   phone: string | null; email: string | null; trucks: number | null; contact_name: string | null; contact_title: string | null;
@@ -170,6 +178,8 @@ export interface DataSource {
   employerContacts(): Promise<EmployerContact[]>;
   /** Anyone: posting counts and median posted pay by employer and role, for a market they can view. */
   marketHiring(cbsa: string): Promise<MarketHiringRow[]>;
+  /** Clients: anonymous benchmarks against other client companies (off until there are 5 peers). */
+  peerBenchmarks(): Promise<PeerBench>;
   lookupEmployerContacts(employers: { company: string; state: string; cbsa?: string }[]): Promise<{ found: number }>;
   saveEmployerContact(c: Partial<EmployerContact> & { company_key: string; company: string }): Promise<void>;
   /** Admins only: recent Ask Acumena questions. */

@@ -123,6 +123,8 @@ More on the Hiring radar:
 
 For clients, **Your business** now has **Plan ahead** (crew planner, price check, lane opportunities), **Competitor watch** (the largest local movers' fleet changes, inspection results and hiring) and a **Monthly report** button (print, save as PDF, or copy as email text). Competitor hiring counts come from `supabase/migrations/0006_market_hiring.sql` (already run on the live project): clients see counts by employer and role for markets in their plan, never the postings themselves.
 
+Amazon-style additions: the **Market snapshot** has a **pricing calendar** (busy/standard/slow weeks for the next six months with suggested price changes) and **round trips** (lanes that pay both ways vs one-way). The Hiring radar has a **Bench builder** (candidates to have ready by market and role, and when to start recruiting). **Your business** has **Input metrics** and **Movers like you** (anonymous peer benchmarks and markets peers added; `supabase/migrations/0007_peer_benchmarks.sql`, already run on the live project; switches on once 5 other clients have 50+ jobs in the last 12 months). Competitor watch shows crash counts; FMCSA doesn't publish consumer complaints in bulk.
+
 Offline copy: `npm run build:real` makes `dist-real/index.html` with real data only (no sample clients), and `PROTECT_PASSWORD=... node scripts/protect_html.mjs dist-real/index.html out.html` locks it with a password (AES-256 encryption).
 
 Indeed sweeps: ask Claude to run an Indeed sweep for your client markets. You get a `.json` file; on the Hiring radar click **Import Indeed sweep** and choose it. Postings from both sources are merged, and a posting is kept for 60 days after it was last seen.
