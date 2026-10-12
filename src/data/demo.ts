@@ -47,7 +47,7 @@ export async function createDemoSource(): Promise<DemoSource> {
   delete (national as Partial<typeof market>).metros;
 
   const home = byCode.get("16740") as MetroDetail; // Charlotte, NC
-  const orgs: DemoOrg[] = [
+  const orgs: DemoOrg[] = __REAL__ ? [] : [
     {
       id: "org-sample", name: "Sample Moving Co.", home_cbsa: "16740", plan: "selected",
       markets: ["16740", "39580", "17900", "24860", "12060"],
@@ -66,8 +66,9 @@ export async function createDemoSource(): Promise<DemoSource> {
       members: [{ user_id: "u4", email: "gm@riverside.example", role: "owner" }], jobs: [],
     },
   ];
-  let role: DemoRole = load<DemoRole>("mmi.demoRole") || "client";
-  let sample = true;
+  let role: DemoRole = __REAL__ ? "admin" : load<DemoRole>("mmi.demoRole") || "client";
+  let sample = !__REAL__;
+  let realContacts: EmployerContact[] | null = null;
   const me = () => orgs[0];
 
   const src: DemoSource = {
@@ -77,6 +78,7 @@ export async function createDemoSource(): Promise<DemoSource> {
     zipMap: () => zip,
     isSample: () => sample,
     async session(): Promise<Session> {
+      if (__REAL__) return { userId: "offline", email: "", isAdmin: true, org: null, role: "owner", markets: [] };
       const o = me();
       return {
         userId: "demo", email: role === "admin" ? "you@yourfirm.example" : "owner@samplemoving.example",
@@ -97,7 +99,7 @@ export async function createDemoSource(): Promise<DemoSource> {
       const allowed = s.isAdmin || s.org?.plan === "all" || s.markets.includes(c);
       return allowed ? byCode.get(c) ?? null : null;
     },
-    async jobs() { return me().jobs; },
+    async jobs() { return __REAL__ ? [] : me().jobs; },
     async addJobs(jobs) { sample = false; me().jobs = me().jobs.concat(jobs); return jobs.length; },
     async deleteAllJobs() { sample = false; me().jobs = []; },
     async adminOverview(): Promise<OrgOverview[]> {
@@ -113,27 +115,38 @@ export async function createDemoSource(): Promise<DemoSource> {
     async createInvite() { return Array.from({ length: 10 }, () => "0123456789ABCDEF"[Math.floor(Math.random() * 16)]).join(""); },
     async listMembers(id) { return (orgs.find((o) => o.id === id) as DemoOrg).members; },
     async ask(question) {
+      if (__REAL__) return { answer: "Ask Acumena works on the live site." };
       await new Promise((r) => setTimeout(r, 700));
       const hit = DEMO_ANSWERS.find((a) => a.match.test(question));
       return { answer: hit ? hit.answer : "In the demo, Ask Acumena answers the example questions shown above. In the live app it answers any question about the markets in your plan, using the same data as these pages." };
     },
     async postings() {
-      const rows = (await import("../../data/demo_indeed_sweep.json")).default as unknown[];
+      const rows = (__REAL__ ? (await import("../../data/indeed_sweep_2026-10-12b.json")).default : (await import("../../data/demo_indeed_sweep.json")).default) as unknown[];
       const keys = new Set<string>();
       for (const m of market.metros) for (const t of m.top || []) keys.add(matchKey(t[0]));
       return fromIndeed(rows, keys);
     },
-    async refreshPostings() { throw new Error("The demo shows a real Indeed sweep from October 12, 2026. In the live app this button pulls fresh postings from Adzuna."); },
+    async refreshPostings() { throw new Error(__REAL__ ? "This offline copy holds the Indeed sweep from October 12, 2026. Refreshing works on the live site." : "The demo shows a real Indeed sweep from October 12, 2026. In the live app this button pulls fresh postings from Adzuna."); },
     async importPostings(rows) { return rows.length; },
-    async lastPostingsRefresh() { return { created_at: "2026-10-12T09:00:00Z", source: "indeed", postings: 27 }; },
-    async employerContacts() { return DEMO_CONTACTS.map((c) => ({ ...c, company_key: matchKey(c.company) })); },
+    async lastPostingsRefresh() { return { created_at: "2026-10-12T16:00:00Z", source: "indeed", postings: (await src.postings()).length }; },
+    async employerContacts() {
+      if (__REAL__) { if (!realContacts) realContacts = (await import("../../data/employer_contacts_2026-10-12.json")).default as EmployerContact[]; return realContacts; }
+      return DEMO_CONTACTS.map((c) => ({ ...c, company_key: matchKey(c.company) }));
+    },
     async lookupEmployerContacts() { return { found: 0 }; },
     async saveEmployerContact(c) {
+      if (__REAL__) {
+        const list = (await src.employerContacts()) as EmployerContact[];
+        const i = list.findIndex((x) => x.company_key === c.company_key);
+        if (i >= 0) list[i] = { ...list[i], ...c }; else list.push({ cbsa: null, usdot: null, legal_name: null, phone: null, email: null, trucks: null, contact_name: null, contact_title: null, source: null, notes: null, ...c });
+        return;
+      }
       const i = DEMO_CONTACTS.findIndex((x) => matchKey(x.company) === c.company_key);
       const row = { ...(i >= 0 ? DEMO_CONTACTS[i] : { company: c.company, cbsa: null, usdot: null, legal_name: null, phone: null, email: null, trucks: null, contact_name: null, contact_title: null, source: null, notes: null }), ...c } as (typeof DEMO_CONTACTS)[number];
       if (i >= 0) DEMO_CONTACTS[i] = row; else DEMO_CONTACTS.push(row);
     },
     async aiLog() {
+      if (__REAL__) return [];
       return [{ id: 1, user_id: "u1", org_id: "org-sample", email: "owner@samplemoving.example", question: DEMO_ANSWERS[0].q, answer: DEMO_ANSWERS[0].answer, tokens_in: 9800, tokens_out: 420, created_at: new Date().toISOString() }];
     },
     async loadMarketData(file, progress) { progress?.(1); return file.metros.length; },

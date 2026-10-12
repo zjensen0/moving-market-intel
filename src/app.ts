@@ -61,7 +61,7 @@ export async function startApp(root: HTMLElement, ds: DataSource, session: Sessi
   // ------------------------------------------------------------------ skeleton
   root.replaceChildren(h("div", { class: "wrap" },
     h("header", null,
-      ds.demo ? demoBar(ds as DemoSource) : null,
+      ds.demo && !__REAL__ ? demoBar(ds as DemoSource) : null,
       h("div", { class: "sign", id: "top" },
         h("div", { class: "exit-tab", id: "rank-tab" }, ""),
         h("div", { class: "sign-row" },
@@ -74,10 +74,10 @@ export async function startApp(root: HTMLElement, ds: DataSource, session: Sessi
       h("div", { class: "bar" },
         h("div", { class: "bar-row" },
           h("nav", { class: "views", "aria-label": "Pages" },
-            tab("market", "Market snapshot"), tab("compare", "Compare markets"), tab("ask", "✦ Ask Acumena"),
-            session.org || ds.demo ? tab("business", "Your business") : null,
+            tab("market", "Market snapshot"), tab("compare", "Compare markets"), __REAL__ ? null : tab("ask", "✦ Ask Acumena"),
+            session.org || (ds.demo && !__REAL__) ? tab("business", "Your business") : null,
             session.isAdmin ? tab("hiring", "Hiring radar") : null,
-            session.isAdmin ? tab("admin", "Admin") : null,
+            session.isAdmin && !__REAL__ ? tab("admin", "Admin") : null,
             tab("methods", "Data & methods")),
           account()),
         h("nav", { class: "jump", id: "jump", "aria-label": "Snapshot sections" },
@@ -92,7 +92,7 @@ export async function startApp(root: HTMLElement, ds: DataSource, session: Sessi
     return h("button", { type: "button", class: "tab", "data-page": page, onclick: () => ctx.go(page === "market" ? "#/market/" + ctx.current : "#/" + page) }, label);
   }
   function account() {
-    if (ds.demo) return h("div", { class: "account" }, themeSwitch(), h("span", { class: "tag" }, "Demo"));
+    if (ds.demo) return h("div", { class: "account" }, themeSwitch(), h("span", { class: "tag" }, __REAL__ ? "Offline copy · Acumena only" : "Demo"));
     return h("div", { class: "account" }, themeSwitch(),
       h("span", { class: "acct-name" }, session.org ? session.org.name : session.isAdmin ? "Admin" : ""),
       h("span", { class: "acct-email" }, session.email),
@@ -108,7 +108,7 @@ export async function startApp(root: HTMLElement, ds: DataSource, session: Sessi
       picker.replaceChildren(h("h1", { class: "sign-title" }, pageTitle));
       sub.textContent = pageSub;
       scoreBox.replaceChildren();
-      tabEl.textContent = ds.demo ? "DEMO" : "ACCOUNT";
+      tabEl.textContent = ds.demo ? (__REAL__ ? "ACUMENA" : "DEMO") : "ACCOUNT";
       $("#foot-metro").textContent = "";
       return;
     }
@@ -132,6 +132,7 @@ export async function startApp(root: HTMLElement, ds: DataSource, session: Sessi
     let route = parseRoute(location.hash);
     if (!route) { location.replace("#/market/" + ctx.current); return; }
     if ((route.page === "admin" || route.page === "hiring") && !session.isAdmin) { location.replace("#/market/" + ctx.current); return; }
+    if (__REAL__ && (route.page === "admin" || route.page === "ask" || route.page === "business")) { location.replace("#/market/" + ctx.current); return; }
     if (route.page === "market") {
       if (!byCode.has(route.code)) { location.replace("#/market/" + ctx.current); return; }
       ctx.current = route.code;

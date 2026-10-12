@@ -8,6 +8,7 @@
     "dev:demo": "vite --mode demo",
     "build": "tsc --noEmit && vite build",
     "build:demo": "tsc --noEmit && vite build --mode demo",
+    "build:real": "tsc --noEmit && vite build --mode real",
     "preview": "vite preview",
     "test": "vitest run",
     "test:db": "node tests/db/rls.test.mjs",

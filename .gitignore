@@ -7,3 +7,4 @@ dist-demo/
 *.log
 .DS_Store
 public/market_data.json
+dist-real/
