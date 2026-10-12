@@ -34,6 +34,7 @@ export async function adminView(el: HTMLElement, ctx: Ctx) {
           }) : [h("tr", null, h("td", { colspan: 7, class: "dim" }, "No client companies yet. Add one below."))])))))),
     ...(selected ? [editor(ctx, orgs.find((o) => o.id === selected) as OrgOverview, byName)] : []),
     marketDataSection(ctx),
+    aiLogSection(ctx, orgs),
     h("section", { class: "block" },
       h("div", { class: "sec-head" }, h("h2", null, "Add a client company")),
       h("div", { class: "grid" },
@@ -314,4 +315,32 @@ function marketDataSection(ctx: Ctx) {
           h("span", { class: "dz-main" }, "Choose ", h("u", null, "market_data.json")),
           h("span", { class: "dz-note" }, ctx.ds.demo ? "In the demo this only simulates the load." : "About 2 MB. Takes under a minute.")),
         status)));
+}
+
+// ---------------------------------------------------------------------------------------------
+function aiLogSection(ctx: Ctx, orgs: OrgOverview[]) {
+  const body = h("div", null, h("p", { class: "sub" }, "Loading…"));
+  const orgName = new Map(orgs.map((o) => [o.id, o.name]));
+  void ctx.ds.aiLog().then((rows) => {
+    if (!rows.length) { body.replaceChildren(h("p", { class: "sub" }, "No questions yet.")); return; }
+    const month = new Date().toISOString().slice(0, 7), today = new Date().toISOString().slice(0, 10);
+    const inMonth = rows.filter((r) => r.created_at.slice(0, 7) === month);
+    // Claude Sonnet 5.5 list price: $2 per million input tokens, $10 per million output tokens
+    const cost = inMonth.reduce((a, r) => a + ((r.tokens_in || 0) * 2 + (r.tokens_out || 0) * 10) / 1e6, 0);
+    body.replaceChildren(
+      h("div", { class: "pair" },
+        h("div", null, h("div", { class: "p-label" }, "Questions today"), h("div", { class: "p-val" }, fmtInt(rows.filter((r) => r.created_at.slice(0, 10) === today).length))),
+        h("div", null, h("div", { class: "p-label" }, "This month"), h("div", { class: "p-val" }, fmtInt(inMonth.length)), h("span", { class: "p-note" }, "of the latest 100 shown")),
+        h("div", null, h("div", { class: "p-label" }, "Estimated AI cost this month"), h("div", { class: "p-val" }, "$" + cost.toFixed(2)), h("span", { class: "p-note" }, "at Claude Sonnet list prices"))),
+      h("div", { class: "tbl-wrap" }, h("table", null,
+        h("thead", null, h("tr", null, h("th", null, "When"), h("th", null, "Who"), h("th", null, "Question"), h("th", { class: "n" }, "Tokens"))),
+        h("tbody", null, ...rows.slice(0, 50).map((r) => h("tr", null,
+          h("td", { class: "n", style: "text-align:left" }, new Date(r.created_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })),
+          h("td", null, r.email || "", h("div", { class: "cell-note" }, r.org_id ? orgName.get(r.org_id) || "" : "Admin")),
+          h("td", null, r.question, r.answer ? h("details", null, h("summary", { class: "linkish" }, "Answer"), h("div", { class: "ask-a" }, r.answer)) : null),
+          h("td", { class: "n" }, fmtInt((r.tokens_in || 0) + (r.tokens_out || 0)))))))));
+  }).catch((err) => body.replaceChildren(note("error", (err as Error).message)));
+  return h("section", { class: "block" },
+    h("div", { class: "sec-head" }, h("h2", null, "Ask Acumena questions"), h("p", null, "What clients are asking, and what it costs")),
+    h("div", { class: "grid" }, h("div", { class: "panel w12" }, body)));
 }

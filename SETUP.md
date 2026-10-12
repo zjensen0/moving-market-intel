@@ -89,10 +89,27 @@ The data sources, their release schedules and what each one feeds are listed on 
 - `npm test` runs the unit tests (CSV reading, analytics); `npm run test:db` checks the database access rules against an in-memory Postgres
 - `npm run build` builds the real site; `npm run build:demo` builds the one-file demo at `dist-demo/index.html`
 
+## 8. Turn on Ask Acumena (AI questions)
+
+Ask Acumena answers plain-English questions from the market data using Claude. It runs in a small server function (`functions/api/ask.ts`) on Cloudflare, so the AI key never reaches anyone's browser.
+
+1. In Supabase, **SQL Editor**, run `supabase/migrations/0003_ai_questions.sql` (the question log and daily limit). Already done on the live project.
+2. Create an API key at https://console.anthropic.com (Settings > API keys). Add a payment method and, under Limits, set a monthly spend limit you're comfortable with (for example $25).
+3. In Cloudflare: **Workers & Pages > moving-market-intel > Settings > Variables and secrets > Add**. Type **Secret**, name `ANTHROPIC_API_KEY`, paste the key, save. Do this for Production.
+4. **Deployments > latest > Retry deployment** so the function picks up the key.
+5. Open the site, click **Ask Acumena**, and try a question.
+
+Optional settings (same place, type Text): `AI_DAILY_LIMIT` (questions per person per day, default 25; admins get ten times that) and `AI_MODEL` (default `claude-sonnet-5-5`; `claude-haiku-5-5` is cheaper and faster but less thorough).
+
+Cost: Claude Sonnet 5.5 is $2 per million input tokens and $10 per million output tokens (https://platform.claude.com/docs/en/models/overview). A typical question uses about 10,000–20,000 input tokens and under 1,000 output tokens, so roughly 3–5 cents. **Admin > Ask Acumena questions** shows every question and an estimated monthly cost.
+
+What clients can see: the function reads data with the asking person's own login, so the same rules apply as everywhere else. They get rankings across all 387 metros (the same preview everyone sees) and full detail only for markets in their plan.
+
 ## If something goes wrong
 
 - **"This copy of the site isn't connected to its database yet"**: the two `VITE_` variables are missing in Cloudflare. Add them and redeploy (Deployments > Retry).
 - **Sign-in link opens a page that says the link is invalid or expired**: Site URL / Redirect URLs in Supabase don't match the site address (step 1.7), or the link was older than an hour.
 - **A client sees "Not in your plan" for their home market**: tick it under Admin > Markets and save.
+- **Ask Acumena says "isn't switched on yet"**: the `ANTHROPIC_API_KEY` secret is missing, or the site wasn't redeployed after adding it (section 8).
 - **Admin tab missing after step 4**: the email in the SQL didn't match exactly, or you didn't reload. Check **Authentication > Users** for the exact address.
 - **Market data load says "row-level security"**: step 2 wasn't run, or your login isn't in `platform_admins` yet (step 4).

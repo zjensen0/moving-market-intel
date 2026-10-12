@@ -26,7 +26,7 @@ await db.exec(`
   grant usage on schema auth to anon, authenticated;
   grant execute on function auth.uid() to anon, authenticated;
 `);
-for (const f of ["0001_init.sql", "0002_admin_market_data.sql"])
+for (const f of ["0001_init.sql", "0002_admin_market_data.sql", "0003_ai_questions.sql"])
   await db.exec(readFileSync(new URL("../../supabase/migrations/" + f, import.meta.url), "utf8"));
 // Supabase grants table privileges to these roles by default; row-level security does the limiting.
 await db.exec(`
@@ -151,5 +151,15 @@ ok("admins can load market data");
 await fails("alice", `insert into public.metro_index (cbsa_code, data) values ('88888', '{}'::jsonb)`, [], /row-level security/, "clients can't add market data");
 const upd = await as("alice", `update public.market_snapshots set data = '{}'::jsonb returning cbsa_code`);
 assert.equal(upd.rows.length, 0); ok("clients can't change market data");
+
+// Ask Acumena question log
+await as("alice", `insert into public.ai_questions (question, answer) values ('best markets?', 'Charlotte')`);
+await as("alice", `insert into public.ai_questions (question) values ('second')`);
+assert.equal((await as("alice", `select public.ai_questions_today() as n`)).rows[0].n, 2); ok("daily question count works");
+await fails("alice", `insert into public.ai_questions (user_id, question) values ($1, 'spoof')`, [ids.bob], /row-level security/, "can't log a question as someone else");
+assert.equal((await as("bob", `select * from public.ai_questions`)).rows.length, 0); ok("clients can't read other people's questions");
+assert.equal((await as("admin", `select * from public.ai_questions`)).rows.length, 2); ok("admins see the question log");
+const del = await as("alice", `delete from public.ai_questions returning id`);
+assert.equal(del.rows.length, 0); ok("nobody can delete questions to reset the limit");
 
 console.log(`\n${passed} checks passed`);

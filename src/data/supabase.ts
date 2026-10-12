@@ -1,7 +1,7 @@
 // Live data source: Supabase for logins, market data and each company's jobs.
 // Access rules live in the database (supabase/migrations/0001_init.sql), not here.
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import type { DataSource, Job, Member, MetroDetail, MetroIndexRow, NationalData, OrgOverview, Session } from "./types";
+import type { AiLogRow, DataSource, Job, Member, MetroDetail, MetroIndexRow, NationalData, OrgOverview, Session } from "./types";
 import { indexRow } from "./types";
 
 const PAGE = 1000;
@@ -63,6 +63,32 @@ export function createSupabaseSource(url: string, anonKey: string): DataSource &
         if (last === undefined) { last = uid; return; }
         if (uid !== last) { last = uid; cb(); }
       });
+    },
+    async ask(question, context) {
+      const { data } = await sb.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) throw new Error("Your sign-in has expired. Reload the page.");
+      let r: Response;
+      try {
+        r = await fetch("/api/ask", { method: "POST", headers: { "content-type": "application/json", authorization: "Bearer " + token },
+          body: JSON.stringify({ question, market: context.market, business: context.business ?? null }) });
+      } catch { throw new Error("Couldn't reach the server. Check your connection and try again."); }
+      const out = await r.json().catch(() => ({ error: "The server sent back something unexpected." }));
+      if (!r.ok) throw new Error(out.error || "Something went wrong.");
+      return out;
+    },
+    async aiLog(): Promise<AiLogRow[]> {
+      const { data, error } = await sb.from("ai_questions").select("id,user_id,org_id,question,answer,tokens_in,tokens_out,created_at")
+        .order("created_at", { ascending: false }).limit(100);
+      fail(error);
+      const rows = (data || []) as AiLogRow[];
+      const ids = [...new Set(rows.map((r) => r.user_id))];
+      if (ids.length) {
+        const { data: ps } = await sb.from("profiles").select("id,email").in("id", ids);
+        const em = new Map((ps || []).map((p) => [p.id, p.email]));
+        rows.forEach((r) => { r.email = em.get(r.user_id) || ""; });
+      }
+      return rows;
     },
     async hasMarketData() {
       const { data, error } = await sb.from("national_snapshot").select("id").eq("id", 1).maybeSingle();

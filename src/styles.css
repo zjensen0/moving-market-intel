@@ -51,7 +51,7 @@ body { margin: 0; min-height: 100vh; background: var(--ground); color: var(--ink
 h1, h2, h3 { margin: 0; text-wrap: balance; }
 p { margin: 0; }
 a { color: var(--s1); text-underline-offset: 2px; }
-button, input, select { font: inherit; color: inherit; }
+button, input, select, textarea { font: inherit; color: inherit; }
 :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .num { font-variant-numeric: tabular-nums; }
@@ -408,3 +408,24 @@ tr.flag td { background: color-mix(in srgb, var(--lane) 14%, var(--panel)); }
 td.pos { color: var(--up); font-weight: 600; }
 td.neg { color: var(--down); font-weight: 600; }
 .fc-months { margin-top: 6px; font-size: 14px; }
+
+/* ---------- Ask Acumena ---------- */
+.views .tab[data-page="ask"] { border-color: color-mix(in srgb, var(--lane) 55%, var(--line)); }
+.ask-panel { display: grid; gap: 14px; align-content: start; }
+.ask-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: end; }
+.ask-form textarea { width: 100%; resize: vertical; min-height: 54px; border: 1px solid var(--axis); background: var(--panel); border-radius: 10px; padding: 12px 14px; font-size: 16px; line-height: 1.4; }
+.ask-form textarea:focus-visible { outline: 3px solid var(--focus); outline-offset: 1px; }
+.ask-form .btn { padding: 12px 22px; font-size: 15px; }
+.ask-examples { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.chip { border: 1px solid var(--line); background: var(--panel-2); border-radius: 999px; padding: 5px 12px; font-size: 13px; cursor: pointer; color: var(--ink-2); text-align: left; }
+.chip:hover { border-color: var(--axis); color: var(--ink); }
+.ask-thread { display: grid; gap: 18px; }
+.ask-turn { border-top: 1px solid var(--line); padding-top: 14px; display: grid; gap: 8px; }
+.ask-q { font-weight: 600; font-size: 16px; }
+.ask-q::before { content: "Q  "; color: var(--muted); font-family: var(--font-mono); font-size: 12px; }
+.ask-a { color: var(--ink); font-size: 15px; line-height: 1.55; display: grid; gap: 8px; max-width: 75ch; }
+.ask-a ul { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+.ask-a h4 { margin: 4px 0 0; font-size: 15px; }
+.ask-wait::after { content: ""; display: inline-block; width: 1em; animation: dots 1.2s steps(4) infinite; }
+@keyframes dots { 0% { content: ""; } 25% { content: "."; } 50% { content: ".."; } 75% { content: "..."; } }
+@media (max-width: 640px) { .ask-form { grid-template-columns: minmax(0, 1fr); } }

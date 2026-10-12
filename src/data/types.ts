@@ -112,6 +112,11 @@ export interface OrgOverview extends Org {
   jobs: number;
 }
 
+export interface AiLogRow {
+  id: number; user_id: string; org_id: string | null; question: string; answer: string | null;
+  tokens_in: number | null; tokens_out: number | null; created_at: string; email?: string;
+}
+
 export interface Member {
   user_id: string;
   email: string;
@@ -144,6 +149,10 @@ export interface DataSource {
   createInvite(orgId: string, role: "owner" | "member", days: number, maxUses: number): Promise<string>;
   listMembers(orgId: string): Promise<Member[]>;
   removeMember(orgId: string, userId: string): Promise<void>;
+  /** Ask Acumena: a question answered by AI from the market data (live: /api/ask). */
+  ask(question: string, context: { market?: string; business?: Record<string, unknown> | null }): Promise<{ answer: string; remaining?: number }>;
+  /** Admins only: recent Ask Acumena questions. */
+  aiLog(): Promise<AiLogRow[]>;
   /** Admins only: replace the market data with a new market_data.json. Reports progress 0..1. */
   loadMarketData(file: NationalData & { metros: MetroDetail[] }, progress?: (done: number) => void): Promise<number>;
 }
