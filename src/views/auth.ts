@@ -123,3 +123,36 @@ function friendly(msg: string) {
   if (/password/i.test(msg) && /characters|short|weak/i.test(msg)) return "Use a longer password: at least 8 characters.";
   return msg;
 }
+
+/** Empty database: admins load market_data.json here; everyone else waits. */
+export function firstLoadScreen(root: HTMLElement, ds: DataSource, isAdmin: boolean) {
+  if (!isAdmin) {
+    shell(root, "Almost ready", "Market data hasn't been loaded yet",
+      h("p", { class: "lead" }, "Your account is set up. Your account manager is loading the market data; check back shortly."));
+    return;
+  }
+  const status = h("div", { "aria-live": "polite" });
+  const input = h("input", { type: "file", accept: ".json,application/json", class: "sr-only", id: "md-file" }) as HTMLInputElement;
+  input.addEventListener("change", async () => {
+    const f = input.files?.[0];
+    input.value = "";
+    if (!f) return;
+    try {
+      const data = JSON.parse(await f.text());
+      if (!Array.isArray(data.metros) || !data.built) throw new Error("This doesn't look like market_data.json (no metros list).");
+      const bar = h("div", { class: "m-track" }, h("div", { class: "m-fill", style: "width:0%" }));
+      status.replaceChildren(h("p", { class: "sub" }, `Loading ${data.metros.length} metros…`), bar);
+      await ds.loadMarketData(data, (p) => { (bar.firstChild as HTMLElement).style.width = Math.round(p * 100) + "%"; });
+      status.replaceChildren(note("ok", "Loaded. Opening the app…"));
+      setTimeout(() => location.reload(), 800);
+    } catch (err) {
+      status.replaceChildren(note("error", (err as Error).message));
+    }
+  });
+  shell(root, "Load the market data", "One-time step for admins",
+    h("p", { class: "lead" }, "The database is set up but empty. Choose the market_data.json file to load all 387 metros. You can refresh it the same way later from the Admin page."),
+    h("label", { class: "dropzone", for: "md-file" }, input,
+      h("span", { class: "dz-main" }, "Choose ", h("u", null, "market_data.json")),
+      h("span", { class: "dz-note" }, "About 2 MB. Takes under a minute.")),
+    status);
+}

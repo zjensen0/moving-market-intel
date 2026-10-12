@@ -20,8 +20,8 @@ Costs: Supabase Free (0 dollars) is enough to start; move to Pro (25 dollars a m
 4. Open the file `supabase/migrations/0001_init.sql` from this repo, paste the whole thing into the SQL editor and click **Run**. It creates the tables, the access rules and the helper functions. You should see "Success. No rows returned."
 5. Open **Project settings > API** (gear icon). Copy two values; you'll use them in steps 2 and 3:
    - **Project URL** (looks like `https://abcdefgh.supabase.co`)
-   - **anon public** key (long string starting with `eyJ`). This one is safe to put in the website.
-   - Also note where the **service_role** key is. It bypasses every access rule. Never paste it into the website, a GitHub file, or a chat. You'll use it once on your own computer in step 2.
+   - **Publishable key** (Project settings > API Keys, starts with `sb_publishable_`). This one is safe to put in the website.
+   - You don't need the secret (service role) key for anything. Leave it alone; it bypasses every access rule.
 
 ### Login settings
 
@@ -29,26 +29,9 @@ Costs: Supabase Free (0 dollars) is enough to start; move to Pro (25 dollars a m
 7. **Authentication > URL Configuration**: after step 3 you'll come back here and set **Site URL** to your website address (for example `https://moving-market-intel.pages.dev`) and add the same address under **Redirect URLs**. Without this, emailed sign-in links won't bring people back to the site.
 8. Optional but recommended once you have clients: **Authentication > Email templates**: change the sender name to Acumena Analytics. Supabase's built-in email sender is limited to a few emails an hour; for real volume connect a free sending service under **Project settings > Auth > SMTP** (Resend or Brevo both have free tiers).
 
-## 2. Load the market data (on your computer)
+## 2. Add the admin data-loading rule
 
-The market data (387 metros) lives in `data/market_data.json` in this repo. Load it into the database once, and again whenever the data pipeline produces a new file.
-
-On your Windows PC:
-
-1. Install Node.js (LTS) from https://nodejs.org if you don't have it.
-2. Clone the repo: `git clone https://github.com/zjensen0/moving-market-intel` and open a terminal in that folder.
-3. `npm install`
-4. Run the loader, with your values from step 1.5:
-
-   PowerShell:
-   ```powershell
-   $env:SUPABASE_URL="https://YOUR-PROJECT.supabase.co"
-   $env:SUPABASE_SERVICE_ROLE_KEY="paste the service_role key"
-   node scripts/load_market_data.mjs
-   ```
-   It prints progress and finishes with "Done." Then close that terminal so the key isn't sitting in a window.
-
-5. Check: in Supabase, **Table Editor > market_snapshots** should show 387 rows.
+In the SQL Editor, open a new query, paste `supabase/migrations/0002_admin_market_data.sql` and Run. It lets platform admins (and nobody else) load market data from the website, so you never need the secret key.
 
 ## 3. Host the website (Cloudflare Pages)
 
@@ -60,7 +43,7 @@ On your Windows PC:
    - Build output directory: `dist`
 4. **Environment variables** (add for Production, and again for Preview if you want preview builds to work):
    - `VITE_SUPABASE_URL` = your Project URL
-   - `VITE_SUPABASE_ANON_KEY` = your anon public key
+   - `VITE_SUPABASE_ANON_KEY` = your publishable key
    - `NODE_VERSION` = `22`
 5. **Save and Deploy**. The first build takes about two minutes. You get an address like `https://moving-market-intel.pages.dev`.
 6. Go back to Supabase **Authentication > URL Configuration** and set Site URL and Redirect URLs to that address (step 1.7).
@@ -76,7 +59,7 @@ From now on, every push to `main` on GitHub redeploys the site automatically.
    insert into public.platform_admins (user_id)
    select id from auth.users where email = 'you@acumenasolutions.com';
    ```
-3. Reload the website. You now see all 387 markets and the **Admin** tab.
+3. Reload the website. The first time, it asks you to **load the market data**: choose `market_data.json` (in the repo's `data` folder, or the copy I sent you). It takes under a minute. After that you see all 387 markets and the **Admin** tab.
 
 To add a second admin later, run the same SQL for their email after they create an account.
 
@@ -95,7 +78,7 @@ To stop someone's access: **Admin > company > People > Remove**. To stop a whole
 When the data pipeline produces a new `data/market_data.json`:
 
 1. Commit it to the repo (so the demo build picks it up) and push.
-2. Run step 2.4 again to refresh the database. Clients see the new data on their next page load.
+2. On the website, **Admin > Market data**, choose the new file. Clients see the new data on their next page load.
 
 The data sources, their release schedules and what each one feeds are listed on the site's **Data & methods** page.
 
@@ -112,4 +95,4 @@ The data sources, their release schedules and what each one feeds are listed on 
 - **Sign-in link opens a page that says the link is invalid or expired**: Site URL / Redirect URLs in Supabase don't match the site address (step 1.7), or the link was older than an hour.
 - **A client sees "Not in your plan" for their home market**: tick it under Admin > Markets and save.
 - **Admin tab missing after step 4**: the email in the SQL didn't match exactly, or you didn't reload. Check **Authentication > Users** for the exact address.
-- **Loader says "permission denied"**: you used the anon key instead of the service_role key.
+- **Market data load says "row-level security"**: step 2 wasn't run, or your login isn't in `platform_admins` yet (step 4).

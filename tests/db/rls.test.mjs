@@ -26,7 +26,8 @@ await db.exec(`
   grant usage on schema auth to anon, authenticated;
   grant execute on function auth.uid() to anon, authenticated;
 `);
-await db.exec(readFileSync(new URL("../../supabase/migrations/0001_init.sql", import.meta.url), "utf8"));
+for (const f of ["0001_init.sql", "0002_admin_market_data.sql"])
+  await db.exec(readFileSync(new URL("../../supabase/migrations/" + f, import.meta.url), "utf8"));
 // Supabase grants table privileges to these roles by default; row-level security does the limiting.
 await db.exec(`
   grant usage on schema public to anon, authenticated;
@@ -140,5 +141,15 @@ try {
   await db.exec(`reset role`);
 }
 assert.equal(anonRows.length, 0); ok("signed-out visitors can't read anything");
+
+// market data: admins can load it, clients can't change it
+await as("admin", `insert into public.metro_index (cbsa_code, data) values ('99999', '{}'::jsonb)
+                   on conflict (cbsa_code) do update set data = excluded.data`);
+await as("admin", `insert into public.national_snapshot (id, data) values (1, '{"built":"x"}'::jsonb)
+                   on conflict (id) do update set data = excluded.data`);
+ok("admins can load market data");
+await fails("alice", `insert into public.metro_index (cbsa_code, data) values ('88888', '{}'::jsonb)`, [], /row-level security/, "clients can't add market data");
+const upd = await as("alice", `update public.market_snapshots set data = '{}'::jsonb returning cbsa_code`);
+assert.equal(upd.rows.length, 0); ok("clients can't change market data");
 
 console.log(`\n${passed} checks passed`);

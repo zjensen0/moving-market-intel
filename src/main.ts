@@ -38,6 +38,7 @@ async function bootLive() {
     ds.onAuthChange(() => location.reload());
     if (!session) return auth.signInScreen(root, ds, linkError ? linkError.replace(/\+/g, " ") + ". Request a new link below." : undefined);
     if (!session.org && !session.isAdmin) return auth.joinScreen(root, ds, session.email);
+    if (!(await ds.hasMarketData())) return auth.firstLoadScreen(root, ds, session.isAdmin);
     const { startApp } = await import("./app");
     await startApp(root, ds, session, () => ds.zipMap());
   } catch (e) {

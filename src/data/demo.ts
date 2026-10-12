@@ -90,6 +90,7 @@ export async function createDemoSource(): Promise<DemoSource> {
     async setOrgMarkets(id, codes) { (orgs.find((o) => o.id === id) as DemoOrg).markets = [...codes].sort(); },
     async createInvite() { return Array.from({ length: 10 }, () => "0123456789ABCDEF"[Math.floor(Math.random() * 16)]).join(""); },
     async listMembers(id) { return (orgs.find((o) => o.id === id) as DemoOrg).members; },
+    async loadMarketData(file, progress) { progress?.(1); return file.metros.length; },
     async removeMember(id, userId) {
       const o = orgs.find((x) => x.id === id) as DemoOrg;
       o.members = o.members.filter((m) => m.user_id !== userId);

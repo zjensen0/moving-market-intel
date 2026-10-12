@@ -2,10 +2,11 @@
 // Access rules live in the database (supabase/migrations/0001_init.sql), not here.
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { DataSource, Job, Member, MetroDetail, MetroIndexRow, NationalData, OrgOverview, Session } from "./types";
+import { indexRow } from "./types";
 
 const PAGE = 1000;
 
-export function createSupabaseSource(url: string, anonKey: string): DataSource & { zipMap(): Promise<Record<string, string>> } {
+export function createSupabaseSource(url: string, anonKey: string): DataSource & { zipMap(): Promise<Record<string, string>>; hasMarketData(): Promise<boolean> } {
   const sb: SupabaseClient = createClient(url, anonKey, { auth: { persistSession: true, autoRefreshToken: true } });
   let cached: Session | null = null;
 
@@ -62,6 +63,11 @@ export function createSupabaseSource(url: string, anonKey: string): DataSource &
         if (last === undefined) { last = uid; return; }
         if (uid !== last) { last = uid; cb(); }
       });
+    },
+    async hasMarketData() {
+      const { data, error } = await sb.from("national_snapshot").select("id").eq("id", 1).maybeSingle();
+      fail(error);
+      return !!data;
     },
     async national(): Promise<NationalData> {
       const { data, error } = await sb.from("national_snapshot").select("data").eq("id", 1).single();
@@ -149,6 +155,21 @@ export function createSupabaseSource(url: string, anonKey: string): DataSource &
       fail(e2);
       const email = new Map((ps || []).map((p) => [p.id, p.email]));
       return ms.map((m) => ({ user_id: m.user_id, role: m.role, email: email.get(m.user_id) || "(unknown)" }));
+    },
+    async loadMarketData(file, progress) {
+      const { metros, ...national } = file;
+      const now = new Date().toISOString();
+      const { error } = await sb.from("national_snapshot").upsert({ id: 1, data: national, updated_at: now });
+      fail(error);
+      for (let i = 0; i < metros.length; i += 25) {
+        const chunk = metros.slice(i, i + 25);
+        const r1 = await sb.from("metro_index").upsert(chunk.map((m) => ({ cbsa_code: m.c, data: indexRow(m), updated_at: now })));
+        fail(r1.error);
+        const r2 = await sb.from("market_snapshots").upsert(chunk.map((m) => ({ cbsa_code: m.c, data: m, updated_at: now })));
+        fail(r2.error);
+        progress?.(Math.min(1, (i + chunk.length) / metros.length));
+      }
+      return metros.length;
     },
     async removeMember(orgId, userId) {
       const { error } = await sb.from("memberships").delete().eq("org_id", orgId).eq("user_id", userId);

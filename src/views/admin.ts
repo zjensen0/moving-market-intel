@@ -33,6 +33,7 @@ export async function adminView(el: HTMLElement, ctx: Ctx) {
             return tr;
           }) : [h("tr", null, h("td", { colspan: 7, class: "dim" }, "No client companies yet. Add one below."))])))))),
     ...(selected ? [editor(ctx, orgs.find((o) => o.id === selected) as OrgOverview, byName)] : []),
+    marketDataSection(ctx),
     h("section", { class: "block" },
       h("div", { class: "sec-head" }, h("h2", null, "Add a client company")),
       h("div", { class: "grid" },
@@ -263,3 +264,36 @@ function wirePlanSeg(id: string, onChange?: (p: Org["plan"]) => void) {
   }));
 }
 const note = (kind: "error" | "ok" | "info", text: Child) => h("div", { class: "notice notice-" + kind }, text);
+
+// ---------------------------------------------------------------------------------------------
+function marketDataSection(ctx: Ctx) {
+  const built = new Date(ctx.N.built + "T12:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+  const status = h("div", { "aria-live": "polite" });
+  const input = h("input", { type: "file", accept: ".json,application/json", class: "sr-only", id: "md-file" });
+  input.addEventListener("change", async () => {
+    const f = input.files?.[0];
+    input.value = "";
+    if (!f) return;
+    status.replaceChildren(note("info", "Reading " + f.name + "…"));
+    try {
+      const data = JSON.parse(await f.text());
+      if (!Array.isArray(data.metros) || !data.built || !data.zm) throw new Error("This doesn't look like market_data.json (no metros list).");
+      const bar = h("div", { class: "m-track" }, h("div", { class: "m-fill", style: "width:0%" }));
+      status.replaceChildren(h("p", { class: "sub" }, `Loading ${fmtInt(data.metros.length)} metros, data as of ${data.built}…`), bar);
+      const n = await ctx.ds.loadMarketData(data, (p) => { (bar.firstChild as HTMLElement).style.width = Math.round(p * 100) + "%"; });
+      status.replaceChildren(note("ok", `Loaded ${fmtInt(n)} metros. Reload the page to see the new data.`));
+    } catch (err) {
+      status.replaceChildren(note("error", (err as Error).message));
+    }
+  });
+  return h("section", { class: "block" },
+    h("div", { class: "sec-head" }, h("h2", null, "Market data")),
+    h("div", { class: "grid" },
+      h("div", { class: "panel w12" },
+        h("h3", null, `${fmtInt(ctx.index.length)} metros loaded, data as of ${built}`),
+        h("p", { class: "sub" }, "To load or refresh the market data, choose the market_data.json file from the data pipeline. It replaces what clients see on their next page load. Client jobs and accounts aren't touched."),
+        h("label", { class: "dropzone", for: "md-file" }, input,
+          h("span", { class: "dz-main" }, "Choose ", h("u", null, "market_data.json")),
+          h("span", { class: "dz-note" }, ctx.ds.demo ? "In the demo this only simulates the load." : "About 2 MB. Takes under a minute.")),
+        status)));
+}

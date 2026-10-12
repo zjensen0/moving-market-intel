@@ -133,6 +133,8 @@ export interface DataSource {
   createInvite(orgId: string, role: "owner" | "member", days: number, maxUses: number): Promise<string>;
   listMembers(orgId: string): Promise<Member[]>;
   removeMember(orgId: string, userId: string): Promise<void>;
+  /** Admins only: replace the market data with a new market_data.json. Reports progress 0..1. */
+  loadMarketData(file: NationalData & { metros: MetroDetail[] }, progress?: (done: number) => void): Promise<number>;
 }
 
 /** Build the light index row from a full metro object. */
